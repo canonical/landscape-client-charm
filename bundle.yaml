@@ -1,0 +1,17 @@
+description: Landscape Client Test Bundle
+applications:
+  landscape-client:
+    series: jammy
+    charm: ./landscape-client_ubuntu-22.04-amd64_ubuntu-22.10-amd64_ubuntu-20.04-amd64.charm
+    options:
+      computer-title: charm777
+      account-name: devel
+      ppa: ppa:landscape/self-hosted-beta
+      url: https://landscape.canonical.com/message-system
+      ping-url: https://landscape.canonical.com/ping
+  ubuntu:
+    series: jammy
+    charm: ch:ubuntu
+    num_units: 1
+relations:
+  - [landscape-client, ubuntu]

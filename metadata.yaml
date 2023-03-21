@@ -1,0 +1,26 @@
+# This file populates the Overview on Charmhub.
+# See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.
+
+# The charm package name, no spaces (required)
+# See https://juju.is/docs/sdk/naming#heading--naming-charms for guidance.
+name: landscape-client
+ 
+# The following metadata are human-readable and will be published prominently on Charmhub.
+
+# (Recommended)
+display-name: Landscape Client
+
+# (Required)
+summary: Charm for installing landscape-client
+
+description: |
+  Landscape is a web-based tool for managing Ubuntu systems. This package
+  is necessary if you want your machine to be managed in a Landscape
+  via Juju.  This package provides the Landscape client and requires a
+  Landscape account.
+
+subordinate: true
+requires:
+  mycontainer:
+    interface: juju-info
+    scope: container

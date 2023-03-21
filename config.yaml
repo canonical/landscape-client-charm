@@ -1,0 +1,102 @@
+# See https://juju.is/docs/config for guidance.
+
+options:
+
+  ppa:
+    type: string
+    default: 
+    description: The PPA from which Landscape Client will be installed.
+  computer-title:
+    description: |
+      The title of this computer
+    type: string
+    default:
+  data-path:
+    description: |
+      The directory to store data files in (default:
+      '/var/lib/landscape/client/').
+    type: string
+    default:
+  log-dir:
+    description: |
+      The directory to write log files to (default:
+      '/var/log/landscape').
+    type: string
+    default:
+  log-level:
+    description: |
+      One of debug, info, warning, error or critical.
+    type: string
+    default:
+  url:
+    description: |
+      The message server URL to connect to. Normally
+      https://fqdn/message-system.
+    type: string
+    default:
+  ping-url:
+    description: |
+      The ping server URL to perform lightweight exchange initiation with.
+      Normally http://fqdn/ping.
+    type: string
+    default:
+  ssl-public-key:
+    description: |
+      The CA certificate to verify the server certificate with. This can be
+      a path to a file, or a base64 encoded entry of the certificate itself,
+      prefixed with "base64:". This config is only used if the message server
+      URL given above starts with https.
+    type: string
+    default:
+  account-name:
+    description: |
+      The account this computer belongs to.
+    type: string
+    default:
+  registration-key:
+    description: |
+      The account-wide key used for registering clients.
+    type: string
+    default:
+  exchange-interval:
+    description: |
+      The number of seconds between server exchanges.
+    type: int
+    default:
+  urgent-exchange-interval:
+    description: |
+      The number of seconds between urgent server exchanges.
+    type: int
+    default:
+  ping-interval:
+    description: |
+      The number of seconds between pings.
+    type: int
+    default:
+  http-proxy:
+    description: |
+      The URL of the HTTP proxy, if one is needed.
+    type: string
+    default:
+  https-proxy:
+    description: |
+      The URL of the HTTPS proxy, if one is needed.
+    type: string
+    default:
+  tags:
+    description: |
+      Comma separated list of tag names to be sent to the server.
+    type: string
+    default:
+  script-users:
+    description: |
+      A comma-separated list of users to allow scripts to run.  To allow
+      scripts to be run by any user, enter: ALL
+    type: string
+    default:
+  include-manager-plugins:
+    description: |
+      A comma-separated list of manager plugins to load, in addition to the
+      default ones.
+    type: string
+    default:

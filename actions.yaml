@@ -1,0 +1,7 @@
+# Copyright 2023 Canonical Ltd
+# See LICENSE file for licensing details.
+
+upgrade:
+  description: Upgrade software on the Landscape Client unit. This will update
+    APT package indices and upgrade the landscape-client package. Landscape
+    client will be restarted

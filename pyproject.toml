@@ -1,0 +1,20 @@
+# Testing tools configuration
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+log_cli_level = "INFO"
+
+# Formatting tools configuration
+[tool.black]
+target-version = ["py38"]
+exclude = "lib"
+
+[tool.isort]
+line_length = 99
+profile = "black"
+
