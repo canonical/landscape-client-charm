@@ -9,7 +9,10 @@ bases:
     run-on:
     - name: "ubuntu"
       channel: "22.04"
+      architectures: [all]
     - name: "ubuntu"
-      channel: "22.10" 
+      channel: "22.10"
+      architectures: [all]
     - name: "ubuntu"
       channel: "20.04"
+      architectures: [all]
