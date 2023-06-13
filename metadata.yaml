@@ -5,7 +5,7 @@
 # See https://juju.is/docs/sdk/naming#heading--naming-charms for guidance.
 name: landscape-client
  
-# The following metadata are human-readable and will be published prominently on Charmhub.
+docs: https://discourse.charmhub.io/t/landscape-client-charm-docs/10898
 
 # (Recommended)
 display-name: Landscape Client
