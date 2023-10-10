@@ -146,6 +146,10 @@ class LandscapeClientCharm(CharmBase):
             if key == "ssl-public-key":
                 value = parse_ssl_arg(value)
 
+            if isinstance(value, (int, float)):
+                # `Popen` can't handle ints and floats.
+                value = str(value)
+
             configs.append("--" + key)
             configs.append(value)
 
