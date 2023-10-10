@@ -100,3 +100,8 @@ options:
       default ones.
     type: string
     default:
+  stagger-launch:
+    description: |
+      Ratio, between 0 and 1, by which to stagger various tasks of Landscape.
+    type: float
+    default: 0.1
