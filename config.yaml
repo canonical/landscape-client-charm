@@ -105,3 +105,9 @@ options:
       Ratio, between 0 and 1, by which to stagger various tasks of Landscape.
     type: float
     default: 0.1
+  disable-unattended-upgrades:
+    description: |
+      If true, an override will be set in apt to disable unattended-upgrades
+      regardless of the setting created by the unattended-upgrades package.
+    type: boolean
+    default: false

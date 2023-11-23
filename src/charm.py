@@ -20,6 +20,7 @@ from charms.operator_libs_linux.v0 import apt
 
 logger = logging.getLogger(__name__)
 
+APT_CONF_OVERRIDE = "/etc/apt/apt.conf.d/99landscapeoverride"
 CERT_FILE = "/etc/ssl/certs/landscape_server_ca.crt"
 CLIENT_CONFIG_CMD = "/usr/bin/landscape-config"
 CLIENT_PACKAGE = "landscape-client"
@@ -173,6 +174,12 @@ class LandscapeClientCharm(CharmBase):
             self.unit.status = BlockedStatus(str(exc))
 
     def _on_config_changed(self, _):
+        if self.config.get("disable-unattended-upgrades"):
+            with open(APT_CONF_OVERRIDE, "w") as override_fp:
+                override_fp.write('APT::Periodic::Unattended-Upgrade "0";')
+        elif os.path.exists(APT_CONF_OVERRIDE):
+            os.remove(APT_CONF_OVERRIDE)
+
         try:
             apt.DebianPackage.from_installed_package(CLIENT_PACKAGE)
         except apt.PackageNotFoundError:
