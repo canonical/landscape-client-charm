@@ -26,7 +26,10 @@ CLIENT_CONFIG_CMD = "/usr/bin/landscape-config"
 CLIENT_PACKAGE = "landscape-client"
 
 # These configs are not part of landscape client so we don't pass them to it
-CHARM_ONLY_CONFIGS = ["ppa"]
+CHARM_ONLY_CONFIGS = [
+    "ppa",
+    "disable-unattended-upgrades",
+]
 
 
 class ClientCharmError(Exception):
@@ -175,9 +178,11 @@ class LandscapeClientCharm(CharmBase):
 
     def _on_config_changed(self, _):
         if self.config.get("disable-unattended-upgrades"):
+            log_info("Disabling unattended-upgrades via APT config...")
             with open(APT_CONF_OVERRIDE, "w") as override_fp:
                 override_fp.write('APT::Periodic::Unattended-Upgrade "0";')
         elif os.path.exists(APT_CONF_OVERRIDE):
+            log_info("Enabling unattended-upgrades via APT config...")
             os.remove(APT_CONF_OVERRIDE)
 
         try:
