@@ -7,8 +7,9 @@ applications:
       computer-title: charm777
       account-name: devel
       ppa: ppa:landscape/self-hosted-beta
-      url: https://landscape.canonical.com/message-system
-      ping-url: https://landscape.canonical.com/ping
+      url: https://staging.landscape.canonical.com/message-system
+      ping-url: https://staging.landscape.canonical.com/ping
+      registration-key: landscape
   ubuntu:
     series: jammy
     charm: ch:ubuntu
