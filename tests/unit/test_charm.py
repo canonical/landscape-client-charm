@@ -2,6 +2,7 @@
 #
 # Learn more about testing at: https://juju.is/docs/sdk/testing
 import base64
+import os
 import tempfile
 import unittest
 from unittest import mock
@@ -108,3 +109,26 @@ class TestCharm(unittest.TestCase):
 
         self.assertEqual(apt_mock.DebianPackage.from_apt_cache.call_count, 1)
         self.assertEqual(pkg_mock.ensure.call_count, 1)
+
+    @mock.patch("charm.apt.DebianPackage.from_installed_package")
+    def test_disable_unattended_upgrades(self, from_installed_package):
+        """apt configuration is changed to disable unattended-upgrades if this
+        config is `True`. If the config is changed again to `False`, the
+        config override is deleted.
+        """
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+
+        with mock.patch("charm.APT_CONF_OVERRIDE", temp_file.name):
+            self.harness.begin()
+            self.harness.charm.add_ppa = mock.Mock()
+            self.harness.charm.run_landscape_client = mock.Mock()
+            self.harness.update_config({"disable-unattended-upgrades": True})
+
+            temp_file.seek(0)
+            self.assertEqual(
+                temp_file.read(),
+                b'APT::Periodic::Unattended-Upgrade "0";'
+            )
+
+            self.harness.update_config({"disable-unattended-upgrades": False})
+            self.assertFalse(os.path.exists(temp_file.name))
