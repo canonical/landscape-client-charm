@@ -21,6 +21,6 @@ description: |
 
 subordinate: true
 requires:
-  mycontainer:
+  container:
     interface: juju-info
     scope: container
