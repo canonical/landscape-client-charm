@@ -4,9 +4,11 @@
 # Learn more at: https://juju.is/docs/sdk
 
 import base64
+import configparser
 import logging
 import os
 import re
+import socket
 import subprocess
 import traceback
 
@@ -22,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 APT_CONF_OVERRIDE = "/etc/apt/apt.conf.d/99landscapeoverride"
 CERT_FILE = "/etc/ssl/certs/landscape_server_ca.crt"
+CLIENT_CONF_FILE = "/etc/landscape/client.conf"
 CLIENT_CONFIG_CMD = "/usr/bin/landscape-config"
 CLIENT_PACKAGE = "landscape-client"
 
@@ -40,7 +43,8 @@ def log_error(text, event=None):
     if text:  # Sometimes the subprocess output is empty
         logger.critical(text)
     if event:
-        event.fail(text)
+        event.log(text)
+        event.fail()
 
 
 def log_info(text, event=None):
@@ -79,10 +83,12 @@ def parse_ssl_arg(value):
     return value
 
 
-def process_helper(args):
+def process_helper(args, hide_errors=False):
     """
     Grabs all outputs and exceptions from subprocess and look for
     keywords that indicate failure and return if successful or not
+    If hide errors flag is enabled, then suppresses output, which
+    is used for commands that are expected to return non-zero
     """
     log_info(args)
     try:
@@ -94,13 +100,26 @@ def process_helper(args):
         return False
     output, error = p.communicate()
     if p.returncode != 0 or "Failure" in output:
-        log_error("".join(traceback.format_stack()))
-        log_error(output)
-        log_error(error)
+        if not hide_errors:
+            log_error("".join(traceback.format_stack()))
+            log_error(output)
+            log_error(error)
         return False
     else:
         log_info(output)
         return True
+
+
+def update_config(table):
+    """Adds the config values in table to the client.conf file"""
+    config = configparser.ConfigParser()
+    config.read(CLIENT_CONF_FILE)
+    for key, value in table.items():
+        key = key.replace("-", "_")
+        if value:
+            config["client"][key] = str(value)
+    with open(CLIENT_CONF_FILE, "w") as configfile:
+        config.write(configfile)
 
 
 class LandscapeClientCharm(CharmBase):
@@ -113,9 +132,10 @@ class LandscapeClientCharm(CharmBase):
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(
-            self.on.mycontainer_relation_departed, self._on_relation_departed
+            self.on.container_relation_departed, self._on_relation_departed
         )
         self.framework.observe(self.on.upgrade_action, self._upgrade)
+        self.framework.observe(self.on.register_action, self._register)
         self._stored.set_default(things=[])
 
     def add_ppa(self):
@@ -138,36 +158,36 @@ class LandscapeClientCharm(CharmBase):
         Gets and processes the landscape client config args
         from the charm configuration
         """
+        config_dict = {
+            key: value
+            for key, value in self.config.items()
+            if key not in CHARM_ONLY_CONFIGS
+        }
+        if not config_dict.get("computer-title"):
+            config_dict["computer-title"] = socket.gethostname()
+        ssl_key = config_dict.get("ssl-public-key")
+        if ssl_key:
+            config_dict["ssl-public-key"] = parse_ssl_arg(ssl_key)
+        log_info(config_dict)
+        update_config(config_dict)
 
-        configs = []
-        for key, value in self.config.items():
+    def is_registered(self):
+        return process_helper([CLIENT_CONFIG_CMD, "--is-registered"], hide_errors=True)
 
-            if key in CHARM_ONLY_CONFIGS:
-                continue
-            if not value:
-                continue
-
-            if key == "ssl-public-key":
-                value = parse_ssl_arg(value)
-
-            # `Popen` can't handle non-string/bytes arguments.
-            value = str(value)
-
-            configs.append("--" + key)
-            configs.append(value)
-
-        return configs
-
-    def run_landscape_client(self):
-        self.unit.status = MaintenanceStatus("Configuring landscape client..")
-
-        configs = self.parse_client_config_args()
-        args = [CLIENT_CONFIG_CMD, "--silent"] + configs
-
-        if process_helper(args):
+    def send_registration(self):
+        if process_helper([CLIENT_CONFIG_CMD, "--silent"]):
             self.unit.status = ActiveStatus("Client registered!")
         else:
             raise ClientCharmError("Registration failed!")
+
+    def run_landscape_client(self):
+        self.unit.status = MaintenanceStatus("Configuring landscape client..")
+        self.parse_client_config_args()
+        if self.is_registered():
+            process_helper(["systemctl", "restart", "landscape-client"])
+            self.unit.status = ActiveStatus("Client config updated!")
+        else:
+            self.send_registration()
 
     def _on_install(self, _):
         try:
@@ -202,7 +222,6 @@ class LandscapeClientCharm(CharmBase):
         process_helper([CLIENT_CONFIG_CMD, "--silent", "--disable"])
 
     def _upgrade(self, event):
-
         if isinstance(self.unit.status, MaintenanceStatus):
             log_error("Please wait until charm is ready before upgrading.", event=event)
             return
@@ -218,6 +237,22 @@ class LandscapeClientCharm(CharmBase):
             log_info("Upgraded to {}...".format(installed.version), event=event)
         except Exception as exc:
             log_error("Could not upgrade landscape client!", event=event)
+            log_error(traceback.format_exc(), event=event)
+            self.unit.status = BlockedStatus(str(exc))
+
+    def _register(self, event):
+        if isinstance(self.unit.status, MaintenanceStatus):
+            log_error(
+                "Please wait until charm is ready before registering.", event=event
+            )
+            return
+
+        try:
+            log_info("Registering landcape client..", event=event)
+            self.send_registration()
+            log_info("Registration successful!", event=event)
+        except Exception as exc:
+            log_error("Could not register landscape client!", event=event)
             log_error(traceback.format_exc(), event=event)
             self.unit.status = BlockedStatus(str(exc))
 
