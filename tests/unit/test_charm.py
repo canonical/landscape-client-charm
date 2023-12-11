@@ -22,30 +22,47 @@ class TestCharm(unittest.TestCase):
 
         self.process_mock = mock.patch("charm.process_helper").start()
         self.apt_mock = mock.patch("charm.apt.add_package").start()
+        self.from_installed_package_mock = mock.patch(
+            "charm.apt.DebianPackage.from_installed_package"
+        ).start()
+        self.open_mock = mock.patch("builtins.open").start()
+        self.open_mock.side_effect = mock.mock_open(read_data="[client]")
 
     def test_install(self):
         self.harness.begin_with_initial_hooks()
         self.apt_mock.assert_called_once_with("landscape-client")
 
-    @mock.patch("charm.apt.DebianPackage.from_installed_package")
-    def test_install_error(self, from_installed_package_mock):
+    def test_install_error(self):
         self.apt_mock.side_effect = Exception
-        from_installed_package_mock.side_effect = apt.PackageNotFoundError
+        self.from_installed_package_mock.side_effect = apt.PackageNotFoundError
         self.harness.begin_with_initial_hooks()
         self.harness.update_config()
         status = self.harness.charm.unit.status
         self.assertEqual(status.message, "Failed to install client!")
         self.assertIsInstance(status, BlockedStatus)
 
-    def test_run(self):
-        """Test args get passed correctly to landscape-config and no errors"""
+    @mock.patch("charm.update_config")
+    @mock.patch("charm.LandscapeClientCharm.is_registered", return_value=False)
+    def test_run(self, is_registered_mock, update_config_mock):
+        """Test args get passed correctly to landscape-config and registers"""
         self.harness.begin()
         self.harness.update_config({"computer-title": "hello1"})
-        args = [CLIENT_CONFIG_CMD, "--silent", "--computer-title", "hello1"]
-        self.process_mock.assert_called_once_with(args)
+        self.assertIn(
+            ("computer-title", "hello1"), update_config_mock.call_args.args[0].items()
+        )
+        self.process_mock.assert_called_once_with([CLIENT_CONFIG_CMD, "--silent"])
         status = self.harness.charm.unit.status
         self.assertEqual(status.message, "Client registered!")
         self.assertIsInstance(status, ActiveStatus)
+
+    @mock.patch("charm.LandscapeClientCharm.is_registered", return_value=True)
+    def test_restart_if_registered(self, is_registered_mock):
+        """Restart client if it's registered"""
+        self.harness.begin()
+        self.harness.update_config({})
+        self.process_mock.assert_called_once_with(
+            ["systemctl", "restart", "landscape-client"]
+        )
 
     def test_ppa_added(self):
         self.harness.begin()
@@ -60,27 +77,25 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(status.message, "Failed to add PPA!")
         self.assertIsInstance(status, BlockedStatus)
 
-    def test_ppa_not_in_args(self):
+    @mock.patch("charm.update_config")
+    def test_ppa_not_in_args(self, update_config_mock):
         """Test that the ppa arg does not end up in the landscape config"""
         self.harness.begin()
         self.harness.update_config({"ppa": "testppa"})
-        self.process_mock.assert_any_call([CLIENT_CONFIG_CMD, "--silent"])
+        self.assertNotIn("ppa", update_config_mock.call_args.args[0])
 
-    def test_ssl_cert(self):
+    @mock.patch("charm.update_config")
+    def test_ssl_cert(self, update_config_mock):
         """Test that the base64 encoded ssl cert gets written successfully"""
 
         self.harness.begin()
 
         data = b"hello"
 
-        with tempfile.NamedTemporaryFile() as tmp:
+        data_b64 = "base64:" + base64.b64encode(data).decode()
+        self.harness.update_config({"ssl-public-key": data_b64})
 
-            charm.CERT_FILE = tmp.name
-
-            data_b64 = "base64:" + base64.b64encode(data).decode()
-            self.harness.update_config({"ssl-public-key": data_b64})
-
-            self.assertEqual(tmp.read(), data)
+        self.open_mock().write.assert_called_once_with(data)
 
     def test_ssl_cert_invalid_file(self):
         self.harness.begin()
@@ -91,7 +106,7 @@ class TestCharm(unittest.TestCase):
 
     def test_relation_broken(self):
         self.harness.begin()
-        rel_id = self.harness.add_relation("mycontainer", "ubuntu")
+        rel_id = self.harness.add_relation("container", "ubuntu")
         self.harness.add_relation_unit(rel_id, "ubuntu/0")
         self.harness.remove_relation_unit(rel_id, "ubuntu/0")
         self.process_mock.assert_called_once_with(
@@ -110,25 +125,40 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(apt_mock.DebianPackage.from_apt_cache.call_count, 1)
         self.assertEqual(pkg_mock.ensure.call_count, 1)
 
-    @mock.patch("charm.apt.DebianPackage.from_installed_package")
-    def test_disable_unattended_upgrades(self, from_installed_package):
+    def test_action_register(self):
+        self.harness.begin()
+        self.harness.charm.unit.status = ActiveStatus("Active")
+        event = mock.Mock()
+        self.harness.charm._register(event)
+        self.process_mock.assert_called_once_with([CLIENT_CONFIG_CMD, "--silent"])
+
+    @mock.patch("charm.os")
+    def test_disable_unattended_upgrades(self, remove_mock):
         """apt configuration is changed to disable unattended-upgrades if this
         config is `True`. If the config is changed again to `False`, the
         config override is deleted.
         """
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
 
-        with mock.patch("charm.APT_CONF_OVERRIDE", temp_file.name):
-            self.harness.begin()
-            self.harness.charm.add_ppa = mock.Mock()
-            self.harness.charm.run_landscape_client = mock.Mock()
-            self.harness.update_config({"disable-unattended-upgrades": True})
+        self.harness.begin()
+        self.harness.charm.add_ppa = mock.Mock()
+        self.harness.charm.run_landscape_client = mock.Mock()
+        self.harness.update_config({"disable-unattended-upgrades": True})
 
-            temp_file.seek(0)
-            self.assertEqual(
-                temp_file.read(),
-                b'APT::Periodic::Unattended-Upgrade "0";'
-            )
+        self.open_mock.assert_called_once_with(charm.APT_CONF_OVERRIDE, "w")
 
-            self.harness.update_config({"disable-unattended-upgrades": False})
-            self.assertFalse(os.path.exists(temp_file.name))
+        self.harness.update_config({"disable-unattended-upgrades": False})
+
+        remove_mock.remove.assert_called_once_with(charm.APT_CONF_OVERRIDE)
+
+    def test_update_config(self):
+        """
+        Test that update config writes a new value and doesn't change previous ones
+        """
+        self.open_mock.side_effect = mock.mock_open(
+            read_data="[client]\naccount_name = onward"
+        )
+        self.harness.begin()
+        self.harness.update_config({"ping-url": "url"})
+        text = "".join([call.args[0] for call in self.open_mock().write.mock_calls])
+        self.assertIn("account_name = onward", text)
+        self.assertIn("ping_url = url", text)
