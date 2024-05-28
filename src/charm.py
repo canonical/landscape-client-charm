@@ -230,7 +230,7 @@ class LandscapeClientCharm(CharmBase):
         apt.update()
 
         try:
-            log_info("Upgrading landcape client..", event=event)
+            log_info("Upgrading landscape client..", event=event)
             pkg = apt.DebianPackage.from_apt_cache(CLIENT_PACKAGE)
             pkg.ensure(state=apt.PackageState.Latest)
             installed = apt.DebianPackage.from_installed_package(CLIENT_PACKAGE)
@@ -248,7 +248,7 @@ class LandscapeClientCharm(CharmBase):
             return
 
         try:
-            log_info("Registering landcape client..", event=event)
+            log_info("Registering landscape client..", event=event)
             self.send_registration()
             log_info("Registration successful!", event=event)
         except Exception as exc:
