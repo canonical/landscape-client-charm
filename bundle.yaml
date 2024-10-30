@@ -1,17 +1,17 @@
 description: Landscape Client Test Bundle
 applications:
   landscape-client:
-    series: jammy
-    charm: ./landscape-client_ubuntu-22.04-amd64-arm64-ppc64el-s390x_ubuntu-23.10-amd64-arm64-ppc64el-s390x_ubuntu-23.04-amd64-arm64-ppc64el-s390x_ubuntu-20.04-amd64-arm64-ppc64el-s390x.charm
+    base: ubuntu@24.04
+    charm: ./landscape-client_ubuntu-24.04-amd64-arm64-ppc64el-s390x_ubuntu-22.04-amd64-arm64-ppc64el-s390x_ubuntu-23.10-amd64-arm64-ppc64el-s390x_ubuntu-23.04-amd64-arm64-ppc64el-s390x_ubuntu-20.04-amd64-arm64-ppc64el-s390x.charm
     options:
       computer-title: charm777
       account-name: devel
       ppa: ppa:landscape/self-hosted-beta
       url: https://staging.landscape.canonical.com/message-system
       ping-url: https://staging.landscape.canonical.com/ping
-      registration-key: landscape
+      registration-key: redacted
   ubuntu:
-    series: jammy
+    base: ubuntu@24.04
     charm: ch:ubuntu
     num_units: 1
 relations:
