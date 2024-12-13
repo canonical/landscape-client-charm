@@ -152,13 +152,27 @@ class TestCharm(unittest.TestCase):
 
     def test_update_config(self):
         """
-        Test that update config writes a new value and doesn't change previous ones
+        Test that update config can write new values, remove unsetted settings
+        and handle empty setting like proxy to override for local override
         """
+        file_content = ("[client]"
+                        "account_name = onward"
+                        "https_proxy = http://10.123.46.78:3128")
         self.open_mock.side_effect = mock.mock_open(
-            read_data="[client]\naccount_name = onward"
+            read_data=file_content
         )
         self.harness.begin()
-        self.harness.update_config({"ping-url": "url"})
+        self.harness.update_config({
+                                    "ping-url": "url",
+                                    "account-name": "onward",
+                                    "http-proxy": "",
+                                   })
         text = "".join([call.args[0] for call in self.open_mock().write.mock_calls])
+        # existing value
         self.assertIn("account_name = onward", text)
+        # new value
         self.assertIn("ping_url = url", text)
+        # empty value
+        self.assertIn("http_proxy = \n", text)
+        # unset value
+        self.assertNotIn("https_proxy =", text)

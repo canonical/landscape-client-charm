@@ -14,7 +14,7 @@ import traceback
 
 from ops.charm import CharmBase
 from ops.framework import StoredState
-from ops.main import main
+from ops import main
 from ops.model import ActiveStatus, MaintenanceStatus, BlockedStatus
 
 from charms.operator_libs_linux.v0 import apt
@@ -111,13 +111,26 @@ def process_helper(args, hide_errors=False):
 
 
 def update_config(table):
-    """Adds the config values in table to the client.conf file"""
+    """
+    Adds the config values in table to the client.conf file
+    Makes sure to distinguish unset and empty string configuration
+    from juju config
+    empty string will still add it to the configuration file
+    unset state will simply be removed entirely
+    """
     config = configparser.ConfigParser()
     config.read(CLIENT_CONF_FILE)
     for key, value in table.items():
         key = key.replace("-", "_")
-        if value:
-            config["client"][key] = str(value)
+        # this will add any config option that is not unset
+        # even with an empty string being set
+        config["client"][key] = str(value)
+
+    # to make sure to remove any new unset config option
+    for previous_config_key in config["client"]:
+        if previous_config_key.replace("_", "-") not in table.keys():
+            config["client"].pop(previous_config_key, None)
+
     with open(CLIENT_CONF_FILE, "w") as configfile:
         config.write(configfile)
 
