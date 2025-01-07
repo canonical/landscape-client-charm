@@ -8,7 +8,7 @@ import unittest
 from unittest import mock
 
 import charm
-from charm import LandscapeClientCharm, CLIENT_CONFIG_CMD
+from charm import LandscapeClientCharm, CLIENT_CONFIG_CMD, get_modified_env_vars
 from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
@@ -162,3 +162,24 @@ class TestCharm(unittest.TestCase):
         text = "".join([call.args[0] for call in self.open_mock().write.mock_calls])
         self.assertIn("account_name = onward", text)
         self.assertIn("ping_url = url", text)
+
+    @mock.patch('charm.sys.path', new=['/usr/bin', '/hello/path', '/another/path'])
+    @mock.patch('charm.os.environ', new={'PYTHONPATH': '/initial/path'})
+    def test_get_modified_env_vars(self):
+        """
+        Test that paths not having juju in them are kept the same
+        """
+        result = get_modified_env_vars()
+        expected_paths = '/usr/bin:/hello/path:/another/path'
+        self.assertEqual(result['PYTHONPATH'], expected_paths)
+        self.assertNotEqual(result, os.environ)
+        self.assertIn('PYTHONPATH', result)
+
+    @mock.patch('charm.sys.path', new=['/usr/bin', '/juju/path', '/another/path'])
+    @mock.patch('charm.os.environ', new={'PYTHONPATH': '/initial/path'})
+    def test_juju_path_removed(self):
+        result = get_modified_env_vars()
+        expected_paths = '/usr/bin:/another/path'
+        self.assertEqual(result['PYTHONPATH'], expected_paths)
+        self.assertNotEqual(result, os.environ)
+        self.assertIn('PYTHONPATH', result)

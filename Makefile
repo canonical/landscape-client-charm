@@ -5,4 +5,4 @@ build: clean
 
 clean:
 	-rm *.charm
-	-juju destroy-model -y testclient --force
+	-juju destroy-model --no-prompt testclient --force

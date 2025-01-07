@@ -1,5 +1,6 @@
 # This file configures Charmcraft.
 # See https://juju.is/docs/sdk/charmcraft-config for guidance.
+# Note this config works only for charmcraft 2.x/stable
 
 type: charm
 bases:
@@ -7,6 +8,9 @@ bases:
     - name: ubuntu
       channel: "22.04"
     run-on:
+    - name: "ubuntu"
+      channel: "24.04"
+      architectures: [amd64, arm64, ppc64el, s390x]
     - name: "ubuntu"
       channel: "22.04"
       architectures: [amd64, arm64, ppc64el, s390x]

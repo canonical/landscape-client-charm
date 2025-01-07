@@ -10,6 +10,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import traceback
 
 from ops.charm import CharmBase
@@ -83,6 +84,18 @@ def parse_ssl_arg(value):
     return value
 
 
+def get_modified_env_vars():
+    """
+    Because the python path gets munged by the juju env, this grabs the current
+    env vars and returns a copy with the juju env removed from the python paths
+    """
+    env_vars = os.environ.copy()
+    logging.info("Fixing python paths")
+    new_paths = [path for path in sys.path if "juju" not in path]
+    env_vars["PYTHONPATH"] = ":".join(new_paths)
+    return env_vars
+
+
 def process_helper(args, hide_errors=False):
     """
     Grabs all outputs and exceptions from subprocess and look for
@@ -93,8 +106,8 @@ def process_helper(args, hide_errors=False):
     log_info(args)
     try:
         p = subprocess.Popen(
-            args, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True
-        )
+            args, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True,
+        env=get_modified_env_vars())
     except Exception:
         log_error(traceback.format_exc())
         return False
