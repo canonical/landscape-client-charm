@@ -67,7 +67,11 @@ class TestCharm(unittest.TestCase):
     def test_ppa_added(self):
         self.harness.begin()
         self.harness.update_config({"ppa": "ppa"})
-        self.process_mock.assert_any_call(["add-apt-repository", "-y", "ppa"])
+        env_variables = os.environ.copy()
+        self.process_mock.assert_any_call(
+            ["add-apt-repository", "-y", "ppa"],
+            env=env_variables,
+        )
 
     def test_ppa_error(self):
         self.harness.begin()
@@ -76,6 +80,48 @@ class TestCharm(unittest.TestCase):
         status = self.harness.charm.unit.status
         self.assertEqual(status.message, "Failed to add PPA!")
         self.assertIsInstance(status, BlockedStatus)
+
+    @mock.patch.dict(
+        os.environ,
+        {
+            "JUJU_CHARM_HTTP_PROXY": "http://proxy.test:3128",
+            "JUJU_CHARM_HTTPS_PROXY": "http://proxy-https.test:3128",
+        },
+    )
+    def test_ppa_added_with_proxy(self):
+        self.harness.begin()
+        self.harness.update_config({"ppa": "ppa"})
+        env_variables = os.environ.copy()
+        env_variables["http_proxy"] = "http://proxy.test:3128"
+        env_variables["https_proxy"] = "http://proxy-https.test:3128"
+        self.process_mock.assert_any_call(
+            ["add-apt-repository", "-y", "ppa"],
+            env=env_variables,
+        )
+
+    @mock.patch.dict(
+        os.environ,
+        {
+            "JUJU_CHARM_HTTP_PROXY": "http://proxy.test:3128",
+            "JUJU_CHARM_HTTPS_PROXY": "http://proxy-https.test:3128",
+        },
+    )
+    def test_ppa_added_with_proxy_override(self):
+        self.harness.begin()
+        self.harness.update_config(
+            {
+             "ppa": "ppa",
+             "http-proxy": "http://override-proxy.test:3128",
+             "https-proxy": "http://override-proxy-https.test:3128",
+            }
+        )
+        env_variables = os.environ.copy()
+        env_variables["http_proxy"] = "http://override-proxy.test:3128"
+        env_variables["https_proxy"] = "http://override-proxy-https.test:3128"
+        self.process_mock.assert_any_call(
+            ["add-apt-repository", "-y", "ppa"],
+            env=env_variables,
+        )
 
     @mock.patch("charm.update_config")
     def test_ppa_not_in_args(self, update_config_mock):
