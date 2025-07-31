@@ -1,6 +1,6 @@
 # Landscape Client Charm
 
-Docs have moved to [CharmHub](https://charmhub.io/landscape-client).
+Docs have moved to [Charmhub](https://charmhub.io/landscape-client).
 
 ## Developing
 
