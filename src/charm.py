@@ -12,6 +12,7 @@ import socket
 import subprocess
 import sys
 import traceback
+from typing import Mapping
 
 from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
@@ -133,6 +134,26 @@ def update_config(table):
         config.write(configfile)
 
 
+def create_client_config(juju_config: Mapping) -> dict:  # SMR TODO rename
+    """
+    Create the Landscape client configuration from the Juju configuration.
+
+    Remove any Juju configuration that is not relevant to client, and set
+    default values if applicable.
+    """
+    client_config = {
+        key: value
+        for key, value in juju_config.items()
+        if key not in CHARM_ONLY_CONFIGS
+    }
+    client_config.setdefault("computer-title", socket.gethostname())
+
+    if ssl_key := client_config.get("ssl-public-key"):
+        client_config["ssl-public-key"] = parse_ssl_arg(ssl_key)
+
+    return client_config
+
+
 class LandscapeClientCharm(CharmBase):
     """Charm the service."""
 
@@ -192,23 +213,14 @@ class LandscapeClientCharm(CharmBase):
             log_error(traceback.format_exc())
             raise ClientCharmError("Failed to install client!")
 
-    def parse_client_config_args(self):
+    def set_client_config(self):
         """
         Gets and processes the landscape client config args
         from the charm configuration
         """
-        config_dict = {
-            key: value
-            for key, value in self.config.items()
-            if key not in CHARM_ONLY_CONFIGS
-        }
-        if not config_dict.get("computer-title"):
-            config_dict["computer-title"] = socket.gethostname()
-        ssl_key = config_dict.get("ssl-public-key")
-        if ssl_key:
-            config_dict["ssl-public-key"] = parse_ssl_arg(ssl_key)
-        log_info(config_dict)
-        update_config(config_dict)
+        client_config = create_client_config(self.config)
+        log_info(client_config)
+        update_config(client_config)
 
     def is_registered(self):
         return process_helper([CLIENT_CONFIG_CMD, "--is-registered"], hide_errors=True)
@@ -221,7 +233,7 @@ class LandscapeClientCharm(CharmBase):
 
     def run_landscape_client(self):
         self.unit.status = MaintenanceStatus("Configuring landscape client..")
-        self.parse_client_config_args()
+        self.set_client_config()
         if self.is_registered():
             process_helper(["systemctl", "restart", "landscape-client"])
             self.unit.status = ActiveStatus("Client config updated!")
