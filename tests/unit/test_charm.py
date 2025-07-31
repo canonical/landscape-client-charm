@@ -7,12 +7,12 @@ import tempfile
 import unittest
 from unittest import mock
 
-import charm
-from charm import LandscapeClientCharm, CLIENT_CONFIG_CMD, get_modified_env_vars
+from charms.operator_libs_linux.v0 import apt
 from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
-from charms.operator_libs_linux.v0 import apt
+import charm
+from charm import CLIENT_CONFIG_CMD, LandscapeClientCharm, get_modified_env_vars
 
 
 class TestCharm(unittest.TestCase):
@@ -110,9 +110,9 @@ class TestCharm(unittest.TestCase):
         self.harness.begin()
         self.harness.update_config(
             {
-             "ppa": "ppa",
-             "http-proxy": "http://override-proxy.test:3128",
-             "https-proxy": "http://override-proxy-https.test:3128",
+                "ppa": "ppa",
+                "http-proxy": "http://override-proxy.test:3128",
+                "https-proxy": "http://override-proxy-https.test:3128",
             }
         )
         env_variables = os.environ.copy()
@@ -209,23 +209,23 @@ class TestCharm(unittest.TestCase):
         self.assertIn("account_name = onward", text)
         self.assertIn("ping_url = url", text)
 
-    @mock.patch('charm.sys.path', new=['/usr/bin', '/hello/path', '/another/path'])
-    @mock.patch('charm.os.environ', new={'PYTHONPATH': '/initial/path'})
+    @mock.patch("charm.sys.path", new=["/usr/bin", "/hello/path", "/another/path"])
+    @mock.patch("charm.os.environ", new={"PYTHONPATH": "/initial/path"})
     def test_get_modified_env_vars(self):
         """
         Test that paths not having juju in them are kept the same
         """
         result = get_modified_env_vars()
-        expected_paths = '/usr/bin:/hello/path:/another/path'
-        self.assertEqual(result['PYTHONPATH'], expected_paths)
+        expected_paths = "/usr/bin:/hello/path:/another/path"
+        self.assertEqual(result["PYTHONPATH"], expected_paths)
         self.assertNotEqual(result, os.environ)
-        self.assertIn('PYTHONPATH', result)
+        self.assertIn("PYTHONPATH", result)
 
-    @mock.patch('charm.sys.path', new=['/usr/bin', '/juju/path', '/another/path'])
-    @mock.patch('charm.os.environ', new={'PYTHONPATH': '/initial/path'})
+    @mock.patch("charm.sys.path", new=["/usr/bin", "/juju/path", "/another/path"])
+    @mock.patch("charm.os.environ", new={"PYTHONPATH": "/initial/path"})
     def test_juju_path_removed(self):
         result = get_modified_env_vars()
-        expected_paths = '/usr/bin:/another/path'
-        self.assertEqual(result['PYTHONPATH'], expected_paths)
+        expected_paths = "/usr/bin:/another/path"
+        self.assertEqual(result["PYTHONPATH"], expected_paths)
         self.assertNotEqual(result, os.environ)
-        self.assertIn('PYTHONPATH', result)
+        self.assertIn("PYTHONPATH", result)

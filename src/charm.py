@@ -13,13 +13,11 @@ import subprocess
 import sys
 import traceback
 
+from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
-from ops.model import ActiveStatus, MaintenanceStatus, BlockedStatus
-
-from charms.operator_libs_linux.v0 import apt
-
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -167,11 +165,13 @@ class LandscapeClientCharm(CharmBase):
                 # if the charm has a proxy setting configured, override the
                 # juju_http(s)_proxy configuration from the model
                 if proxy_var.replace("_", "-") in self.config:
-                    add_apt_repository_env[proxy_var] = \
-                        self.config[proxy_var.replace("_", "-")]
+                    add_apt_repository_env[proxy_var] = self.config[
+                        proxy_var.replace("_", "-")
+                    ]
                 elif juju_proxy_var in add_apt_repository_env:
-                    add_apt_repository_env[proxy_var] = \
-                        add_apt_repository_env[juju_proxy_var]
+                    add_apt_repository_env[proxy_var] = add_apt_repository_env[
+                        juju_proxy_var
+                    ]
 
                 if proxy_var in add_apt_repository_env:
                     logger.info(
@@ -179,8 +179,9 @@ class LandscapeClientCharm(CharmBase):
                         f"{add_apt_repository_env[proxy_var]}"
                     )
 
-            if not process_helper(["add-apt-repository", "-y", landscape_ppa],
-                                  env=add_apt_repository_env):
+            if not process_helper(
+                ["add-apt-repository", "-y", landscape_ppa], env=add_apt_repository_env
+            ):
                 raise ClientCharmError("Failed to add PPA!")
 
     def install_landscape_client(self):
