@@ -28,11 +28,13 @@ CLIENT_CONF_FILE = "/etc/landscape/client.conf"
 CLIENT_CONFIG_CMD = "/usr/bin/landscape-config"
 CLIENT_PACKAGE = "landscape-client"
 
-# These configs are not part of landscape client so we don't pass them to it
-CHARM_ONLY_CONFIGS = [
+CHARM_ONLY_CONFIGS = {
     "ppa",
     "disable-unattended-upgrades",
-]
+}
+"""
+Configuration values that are used only for the charm, not for Landscape client.
+"""
 
 
 class ClientCharmError(Exception):
@@ -122,11 +124,14 @@ def process_helper(args, hide_errors=False, env=get_modified_env_vars()):
         return True
 
 
-def update_config(table):
-    """Adds the config values in table to the client.conf file"""
+def merge_client_config(client_config: Mapping):
+    """
+    Add the values in `client_config` to the client.conf file, overwriting
+    existing values.
+    """
     config = configparser.ConfigParser()
     config.read(CLIENT_CONF_FILE)
-    for key, value in table.items():
+    for key, value in client_config.items():
         key = key.replace("-", "_")
         if value:
             config["client"][key] = str(value)
@@ -134,7 +139,7 @@ def update_config(table):
         config.write(configfile)
 
 
-def create_client_config(juju_config: Mapping) -> dict:  # SMR TODO rename
+def create_client_config(juju_config: Mapping) -> dict:
     """
     Create the Landscape client configuration from the Juju configuration.
 
@@ -220,7 +225,7 @@ class LandscapeClientCharm(CharmBase):
         """
         client_config = create_client_config(self.config)
         log_info(client_config)
-        update_config(client_config)
+        merge_client_config(client_config)
 
     def is_registered(self):
         return process_helper([CLIENT_CONFIG_CMD, "--is-registered"], hide_errors=True)

@@ -41,14 +41,15 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(status.message, "Failed to install client!")
         self.assertIsInstance(status, BlockedStatus)
 
-    @mock.patch("charm.update_config")
+    @mock.patch("charm.merge_client_config")
     @mock.patch("charm.LandscapeClientCharm.is_registered", return_value=False)
-    def test_run(self, is_registered_mock, update_config_mock):
+    def test_run(self, is_registered_mock, merge_client_config_mock):
         """Test args get passed correctly to landscape-config and registers"""
         self.harness.begin()
         self.harness.update_config({"computer-title": "hello1"})
         self.assertIn(
-            ("computer-title", "hello1"), update_config_mock.call_args.args[0].items()
+            ("computer-title", "hello1"),
+            merge_client_config_mock.call_args.args[0].items(),
         )
         self.process_mock.assert_called_once_with([CLIENT_CONFIG_CMD, "--silent"])
         status = self.harness.charm.unit.status
@@ -123,15 +124,15 @@ class TestCharm(unittest.TestCase):
             env=env_variables,
         )
 
-    @mock.patch("charm.update_config")
-    def test_ppa_not_in_args(self, update_config_mock):
+    @mock.patch("charm.merge_client_config")
+    def test_ppa_not_in_args(self, merge_client_config_mock):
         """Test that the ppa arg does not end up in the landscape config"""
         self.harness.begin()
         self.harness.update_config({"ppa": "testppa"})
-        self.assertNotIn("ppa", update_config_mock.call_args.args[0])
+        self.assertNotIn("ppa", merge_client_config_mock.call_args.args[0])
 
-    @mock.patch("charm.update_config")
-    def test_ssl_cert(self, update_config_mock):
+    @mock.patch("charm.merge_client_config")
+    def test_ssl_cert(self, merge_client_config_mock):
         """Test that the base64 encoded ssl cert gets written successfully"""
 
         self.harness.begin()
