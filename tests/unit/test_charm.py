@@ -48,7 +48,7 @@ class TestCharm(unittest.TestCase):
         self.harness.begin()
         self.harness.update_config({"computer-title": "hello1"})
         self.assertIn(
-            ("computer-title", "hello1"),
+            ("computer_title", "hello1"),
             merge_client_config_mock.call_args.args[0].items(),
         )
         self.process_mock.assert_called_once_with([CLIENT_CONFIG_CMD, "--silent"])

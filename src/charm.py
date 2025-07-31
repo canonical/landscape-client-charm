@@ -12,7 +12,7 @@ import socket
 import subprocess
 import sys
 import traceback
-from typing import Mapping
+from typing import Any, Mapping
 
 from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
@@ -124,37 +124,40 @@ def process_helper(args, hide_errors=False, env=get_modified_env_vars()):
         return True
 
 
-def merge_client_config(client_config: Mapping):
+def merge_client_config(client_config: Mapping[str, Any]):
     """
-    Add the values in `client_config` to the client.conf file, overwriting
-    existing values.
+    Add the values in `client_config` to the [client] section of the client.conf file,
+    overwriting existing values.
     """
     config = configparser.ConfigParser()
     config.read(CLIENT_CONF_FILE)
-    for key, value in client_config.items():
-        key = key.replace("-", "_")
-        if value:
-            config["client"][key] = str(value)
+
+    config["client"].update({k: str(v) for k, v in client_config.items() if v})
+
     with open(CLIENT_CONF_FILE, "w") as configfile:
         config.write(configfile)
 
 
-def create_client_config(juju_config: Mapping) -> dict:
+def create_client_config(juju_config: Mapping[str, Any]) -> dict:
     """
     Create the Landscape client configuration from the Juju configuration.
 
     Remove any Juju configuration that is not relevant to client, and set
     default values if applicable.
+
+    Juju config values with multiple words are hyphen-separated, but client
+    values are underscore-separated.
     """
     client_config = {
-        key: value
+        key.replace("-", "_"): value
         for key, value in juju_config.items()
         if key not in CHARM_ONLY_CONFIGS
     }
-    client_config.setdefault("computer-title", socket.gethostname())
 
-    if ssl_key := client_config.get("ssl-public-key"):
-        client_config["ssl-public-key"] = parse_ssl_arg(ssl_key)
+    client_config.setdefault("computer_title", socket.gethostname())
+
+    if ssl_key := client_config.get("ssl_public_key"):
+        client_config["ssl_public_key"] = parse_ssl_arg(ssl_key)
 
     return client_config
 
