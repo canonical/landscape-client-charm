@@ -20,5 +20,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Install tox
         run: python3 -m pip install tox
-      - name: Run tox
-        run: tox run
+      - name: Lint
+        run: tox run -e lint
+      - name: Unit test
+        run: tox run -e unit

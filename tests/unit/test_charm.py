@@ -7,12 +7,12 @@ import tempfile
 import unittest
 from unittest import mock
 
-import charm
-from charm import LandscapeClientCharm, CLIENT_CONFIG_CMD, get_modified_env_vars
+from charms.operator_libs_linux.v0 import apt
 from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
-from charms.operator_libs_linux.v0 import apt
+import charm
+from charm import CLIENT_CONFIG_CMD, LandscapeClientCharm, get_modified_env_vars
 
 
 class TestCharm(unittest.TestCase):

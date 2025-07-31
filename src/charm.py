@@ -13,13 +13,11 @@ import subprocess
 import sys
 import traceback
 
+from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
-from ops.model import ActiveStatus, MaintenanceStatus, BlockedStatus
-
-from charms.operator_libs_linux.v0 import apt
-
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 
 logger = logging.getLogger(__name__)
 
