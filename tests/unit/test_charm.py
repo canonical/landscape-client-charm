@@ -12,7 +12,14 @@ from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
 import charm
-from charm import CLIENT_CONFIG_CMD, LandscapeClientCharm, get_modified_env_vars
+from charm import (
+    CLIENT_CONFIG_CMD,
+    ClientCharmError,
+    LandscapeClientCharm,
+    create_client_config,
+    get_additional_client_configuration,
+    get_modified_env_vars,
+)
 
 
 class TestCharm(unittest.TestCase):
@@ -49,7 +56,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"computer-title": "hello1"})
         self.assertIn(
             ("computer_title", "hello1"),
-            merge_client_config_mock.call_args.args[0].items(),
+            merge_client_config_mock.call_args.args[1].items(),
         )
         self.process_mock.assert_called_once_with([CLIENT_CONFIG_CMD, "--silent"])
         status = self.harness.charm.unit.status
@@ -129,7 +136,7 @@ class TestCharm(unittest.TestCase):
         """Test that the ppa arg does not end up in the landscape config"""
         self.harness.begin()
         self.harness.update_config({"ppa": "testppa"})
-        self.assertNotIn("ppa", merge_client_config_mock.call_args.args[0])
+        self.assertNotIn("ppa", merge_client_config_mock.call_args.args[1])
 
     @mock.patch("charm.merge_client_config")
     def test_ssl_cert(self, merge_client_config_mock):
@@ -230,3 +237,130 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(result["PYTHONPATH"], expected_paths)
         self.assertNotEqual(result, os.environ)
         self.assertIn("PYTHONPATH", result)
+
+    @mock.patch("charm.merge_client_config")
+    def test_additional_config(self, merge_client_config_mock):
+        """
+        Arbitrary configuration can be provided in a `additional_config`
+        field, and it is merged into to the `client.conf`
+        """
+        self.harness.begin()
+        self.harness.update_config(
+            {
+                "computer-title": "hello1",
+                "additional-client-configuration": "[client]\nsomekey = someval",
+            }
+        )
+        client_config = merge_client_config_mock.call_args.args[1].items()
+
+        self.assertIn(("computer_title", "hello1"), client_config)
+        self.assertIn(("somekey", "someval"), client_config)
+
+    @mock.patch("charm.merge_client_config")
+    def test_empty_additional_config(self, merge_client_config_mock):
+        """
+        Empty additional configuration has no effect.
+        """
+        self.harness.begin()
+        self.harness.update_config(
+            {
+                "computer-title": "hello1",
+                "additional-client-configuration": "",
+            }
+        )
+        client_config = merge_client_config_mock.call_args.args[1].items()
+
+        self.assertIn(("computer_title", "hello1"), client_config)
+
+
+class TestCreateClientConfig(unittest.TestCase):
+
+    def test_additional_config_merged(self):
+        """
+        Non-conflicting additional configuration is merged.
+        """
+        juju_config = {
+            "account-name": "accountname",
+            "additional-client-configuration": "[client]\nping_interval = 60",
+        }
+        expected = {
+            "account_name": "accountname",
+            "ping_interval": "60",
+            "computer_title": "computer_title",
+        }
+        self.assertEqual(
+            expected,
+            create_client_config(juju_config, default_computer_title="computer_title"),
+        )
+
+    def test_additional_config_prioritized_over_explicit_config(self):
+        """
+        Keys in `additional_config` are merged on top of identical keys
+        provided by explicit config.
+        """
+        juju_config = {
+            "account-name": "accountname",
+            "additional-client-configuration": "[client]\naccount_name = myadditionalaccount",
+        }
+        expected = {
+            "account_name": "myadditionalaccount",
+            "computer_title": "computer_title",
+        }
+        self.assertEqual(
+            expected,
+            create_client_config(juju_config, default_computer_title="computer_title"),
+        )
+
+
+class TestGetAddtionalClientConfiguration(unittest.TestCase):
+
+    def test_empty_additional_config(self):
+        """
+        An empty [client] section produces an empty dict
+        """
+        juju_config = {"additional-client-configuration": "[client]"}
+        self.assertEqual({}, get_additional_client_configuration(juju_config))
+
+    def test_multiple_keys(self):
+        """
+        Multiple key/values can be specified in additional-client-configuration
+        """
+        juju_config = {
+            "additional-client-configuration": "[client]\nsomevalue = somekey\nanother_value = another_key"
+        }
+        expected = {"somevalue": "somekey", "another_value": "another_key"}
+        self.assertEqual(expected, get_additional_client_configuration(juju_config))
+
+    def test_malformed_additional_config(self):
+        """
+        A malformed additional config raises a `ClientCharmError` and includes the
+        invalid configuration in the error message.
+
+        The `additional-client-configuration` key must start with a [client] section.
+        """
+        invalid_configs = (
+            {"additional-client-configuration": "[notclientsection]"},
+            {"additional-client-configuration": "nakedkey"},
+            {"additional-client-configuration": "globalkey = value"},
+        )
+
+        for invalid_config in invalid_configs:
+            with self.assertRaises(ClientCharmError) as e:
+                get_additional_client_configuration(invalid_config)
+                self.assertIn(
+                    invalid_config["additional-client-configuration"],
+                    str(e),
+                )
+
+    def test_unknown_additional_config_key(self):
+        """
+        Additional config is not checked; it is passed as-is, including keys that are not
+        meaningful to Landscape client.
+
+        There is currently no schema validation for config.
+        """
+        juju_config = {
+            "additional-client-configuration": "[client]\nsomevalue = somekey"
+        }
+        expected = {"somevalue": "somekey"}
+        self.assertEqual(expected, get_additional_client_configuration(juju_config))

@@ -111,3 +111,8 @@ options:
       regardless of the setting created by the unattended-upgrades package.
     type: boolean
     default: false
+  additional-client-configuration:
+    description: |
+      The contents client.conf file that is merged into the other configuration.
+    type: string
+    default:

@@ -31,9 +31,11 @@ CLIENT_PACKAGE = "landscape-client"
 CHARM_ONLY_CONFIGS = {
     "ppa",
     "disable-unattended-upgrades",
+    "additional-client-configuration",
 }
 """
-Configuration values that are used only for the charm, not for Landscape client.
+Configuration values that are only meaningful for the charm and should not be passed
+through to Landscape client.
 """
 
 
@@ -124,21 +126,54 @@ def process_helper(args, hide_errors=False, env=get_modified_env_vars()):
         return True
 
 
-def merge_client_config(client_config: Mapping[str, Any]):
+def merge_client_config(conf_file: str, client_config: Mapping[str, Any]):
     """
-    Add the values in `client_config` to the [client] section of the client.conf file,
+    Read the contents of the [client] section in `conf_file` and merge `client_config`,
     overwriting existing values.
     """
     config = configparser.ConfigParser()
-    config.read(CLIENT_CONF_FILE)
+    config.read(conf_file)
 
     config["client"].update({k: str(v) for k, v in client_config.items() if v})
 
-    with open(CLIENT_CONF_FILE, "w") as configfile:
+    with open(conf_file, "w") as configfile:
         config.write(configfile)
 
 
-def create_client_config(juju_config: Mapping[str, Any]) -> dict:
+def get_additional_client_configuration(
+    juju_config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """
+    Parse the `additional-client-configuration` option from the Juju configuration
+    and return key-value pairs.
+
+    Return an empty dictionary if the `additional-client-configuration` option is not
+    provided or cannot be parsed.
+    """
+    config = configparser.ConfigParser()
+    raw = juju_config.get("additional-client-configuration")
+    if not raw:
+        return {}
+
+    try:
+        config.read_string(raw)
+    except configparser.MissingSectionHeaderError as e:
+        raise ClientCharmError(
+            f"Malformed additional-client-configuration: {raw}"
+        ) from e
+
+    try:
+        return dict(config["client"])
+    except KeyError as e:
+        raise ClientCharmError(
+            f"Malformed additional-client-configuration: {raw}"
+        ) from e
+
+
+def create_client_config(
+    juju_config: Mapping[str, Any],
+    default_computer_title: str,
+) -> dict:
     """
     Create the Landscape client configuration from the Juju configuration.
 
@@ -154,7 +189,9 @@ def create_client_config(juju_config: Mapping[str, Any]) -> dict:
         if key not in CHARM_ONLY_CONFIGS
     }
 
-    client_config.setdefault("computer_title", socket.gethostname())
+    client_config.update(get_additional_client_configuration(juju_config))
+
+    client_config.setdefault("computer_title", default_computer_title)
 
     if ssl_key := client_config.get("ssl_public_key"):
         client_config["ssl_public_key"] = parse_ssl_arg(ssl_key)
@@ -226,9 +263,12 @@ class LandscapeClientCharm(CharmBase):
         Gets and processes the landscape client config args
         from the charm configuration
         """
-        client_config = create_client_config(self.config)
+        client_config = create_client_config(
+            juju_config=self.config,
+            default_computer_title=socket.gethostname(),
+        )
         log_info(client_config)
-        merge_client_config(client_config)
+        merge_client_config(CLIENT_CONF_FILE, client_config)
 
     def is_registered(self):
         return process_helper([CLIENT_CONFIG_CMD, "--is-registered"], hide_errors=True)
