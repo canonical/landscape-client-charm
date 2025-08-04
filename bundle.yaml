@@ -4,12 +4,12 @@ applications:
     base: ubuntu@24.04
     charm: ./landscape-client_ubuntu-24.04-amd64-arm64-ppc64el-s390x_ubuntu-22.04-amd64-arm64-ppc64el-s390x_ubuntu-23.10-amd64-arm64-ppc64el-s390x_ubuntu-23.04-amd64-arm64-ppc64el-s390x_ubuntu-20.04-amd64-arm64-ppc64el-s390x.charm
     options:
-      computer-title: charm777
+      computer-title: test-client-charm
       account-name: devel
       ppa: ppa:landscape/self-hosted-beta
-      url: https://staging.landscape.canonical.com/message-system
-      ping-url: https://staging.landscape.canonical.com/ping
-      registration-key: redacted
+      url: https://landscape.canonical.com/message-system
+      ping-url: https://landscape.canonical.com/ping
+      registration-key:  # fill in as necessary
   ubuntu:
     base: ubuntu@24.04
     charm: ch:ubuntu

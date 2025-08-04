@@ -15,3 +15,9 @@ Format code automatically:
 ```sh
 tox run -e fmt
 ```
+
+Build charm:
+
+```sh
+charmcraft pack
+```

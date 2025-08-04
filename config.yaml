@@ -113,6 +113,7 @@ options:
     default: false
   additional-client-configuration:
     description: |
-      The contents client.conf file that is merged into the other configuration.
+      The contents of a client.conf file to be merged into the other configuration.
+      Values included here take priority over their equivalent configuration options.
     type: string
     default:

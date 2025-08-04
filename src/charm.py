@@ -139,6 +139,9 @@ def merge_client_config(conf_file: str, client_config: Mapping[str, Any]):
     with open(conf_file, "w") as configfile:
         config.write(configfile)
 
+    c = {s: dict(config[s]) for s in config.sections()}
+    logger.info(f"Client configuration merged. Current value: {c}")
+
 
 def get_additional_client_configuration(
     juju_config: Mapping[str, Any],
@@ -150,10 +153,12 @@ def get_additional_client_configuration(
     Return an empty dictionary if the `additional-client-configuration` option is not
     provided or cannot be parsed.
     """
-    config = configparser.ConfigParser()
     raw = juju_config.get("additional-client-configuration")
+    logger.debug(f"Received additional-client-configuration: {repr(raw)}")
     if not raw:
         return {}
+
+    config = configparser.ConfigParser()
 
     try:
         config.read_string(raw)
@@ -163,7 +168,9 @@ def get_additional_client_configuration(
         ) from e
 
     try:
-        return dict(config["client"])
+        client_config = dict(config["client"])
+        logger.debug(f"Parsed additional-client-configuration: {client_config}")
+        return client_config
     except KeyError as e:
         raise ClientCharmError(
             f"Malformed additional-client-configuration: {raw}"
@@ -189,7 +196,8 @@ def create_client_config(
         if key not in CHARM_ONLY_CONFIGS
     }
 
-    client_config.update(get_additional_client_configuration(juju_config))
+    additional_configuration = get_additional_client_configuration(juju_config)
+    client_config.update(additional_configuration)
 
     client_config.setdefault("computer_title", default_computer_title)
 
