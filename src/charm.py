@@ -164,7 +164,7 @@ def get_additional_client_configuration(
         config.read_string(raw)
     except configparser.MissingSectionHeaderError as e:
         raise ClientCharmError(
-            f"Malformed additional-client-configuration: {raw}"
+            f"Malformed additional-client-configuration: {repr(raw)}"
         ) from e
 
     try:
@@ -173,7 +173,7 @@ def get_additional_client_configuration(
         return client_config
     except KeyError as e:
         raise ClientCharmError(
-            f"Malformed additional-client-configuration: {raw}"
+            f"Malformed additional-client-configuration: {repr(raw)}"
         ) from e
 
 
