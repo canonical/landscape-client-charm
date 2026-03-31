@@ -70,17 +70,19 @@ def write_certificate(certificate, filename):
 
 def parse_ssl_arg(value):
     """
-    Check for file, return if exists.
-    Otherwise decode from base64 and write to_location
+    If ssl config starts with 'base64' or is too long to be a file, decode
+    and write it to the default cert path, return the default path. Else
+    make sure the file exists and return the original value
     """
-    if os.path.isfile(value):
-        return value
-    try:
+    b64_prefix = "base64:"
+    if value.startswith(b64_prefix) or len(value) > 4096:
+        value = re.sub("^" + b64_prefix, "", value)
         write_certificate(value, CERT_FILE)
         value = CERT_FILE
-    except OSError:
-        log_error("Cert {} does not exist!".format(value))
-        raise ClientCharmError("Certificate does not exist!")
+    else:
+        if not os.path.isfile(value):
+            log_error("Cert {} does not exist!".format(value))
+            raise ClientCharmError("Certificate does not exist!")
 
     return value
 
@@ -199,11 +201,9 @@ def create_client_config(
 
     client_config.setdefault("computer_title", default_computer_title)
 
-    if ssl_key := client_config.get("ssl_ca"):
-        client_config["ssl_ca"] = parse_ssl_arg(ssl_key)
-    elif ssl_key := client_config.get("ssl_public_key"):
+    if ssl_key := client_config.get("ssl_public_key"):
         client_config["ssl_public_key"] = parse_ssl_arg(ssl_key)
-        logging.warning("`ssl_public_key` is deprecated; " "use `ssl_ca` instead.")
+
     return client_config
 
 

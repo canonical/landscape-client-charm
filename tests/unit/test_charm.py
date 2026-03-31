@@ -139,52 +139,24 @@ class TestCharm(unittest.TestCase):
         self.assertNotIn("ppa", merge_client_config_mock.call_args.args[1])
 
     @mock.patch("charm.merge_client_config")
-    def test_ssl_public_key(self, merge_client_config_mock):
-        """Test that the base64 encoded ssl cert gets written successfully"""
-
-        self.harness.begin()
-
-        data = b"hello"
-        data_b64 = base64.b64encode(data).decode()  # no 'base64:' prefix
-        self.harness.update_config({"ssl-public-key": data_b64})
-
-        self.open_mock().write.assert_called_once_with(data)
-
-    @mock.patch("charm.merge_client_config")
     def test_ssl_cert(self, merge_client_config_mock):
         """Test that the base64 encoded ssl cert gets written successfully"""
 
         self.harness.begin()
 
         data = b"hello"
-        data_b64 = base64.b64encode(data).decode()  # no 'base64:' prefix
-        self.harness.update_config({"ssl-ca": data_b64})
+
+        data_b64 = "base64:" + base64.b64encode(data).decode()
+        self.harness.update_config({"ssl-public-key": data_b64})
 
         self.open_mock().write.assert_called_once_with(data)
 
-    @mock.patch("charm.os.path.isfile", return_value=True)
-    @mock.patch("charm.merge_client_config")
-    def test_ssl_cert_valid_path(self, merge_client_config_mock, _):
+    def test_ssl_cert_invalid_file(self):
         self.harness.begin()
-        self.harness.update_config(
-            {"ssl-ca": "/etc/ssl/certs/landscape_server_cal.crt"}
-        )
-        self.assertEqual(
-            "/etc/ssl/certs/landscape_server_cal.crt",
-            merge_client_config_mock.call_args.args[1]["ssl_ca"],
-        )
-
-    @mock.patch("charm.os.path.isfile", return_value=False)
-    @mock.patch("charm.merge_client_config")
-    @mock.patch("charm.write_certificate", side_effect=OSError("write failed"))
-    def test_ssl_cert_oserror(
-        self, _write_certificate, merge_client_config_mock, _isfile
-    ):
-        self.harness.begin()
-        self.harness.update_config({"ssl-ca": "badcert"})
-        merge_client_config_mock.assert_not_called()
-        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
-        self.assertIn("Certificate does not exist", str(self.harness.model.unit.status))
+        self.harness.update_config({"ssl-public-key": "/path/to/nowhere"})
+        status = self.harness.charm.unit.status
+        self.assertEqual(status.message, "Certificate does not exist!")
+        self.assertIsInstance(status, BlockedStatus)
 
     def test_relation_broken(self):
         self.harness.begin()
