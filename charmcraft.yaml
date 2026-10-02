@@ -16,3 +16,8 @@ platforms:
   ubuntu@24.04:arm64:
   ubuntu@24.04:ppc64el:
   ubuntu@24.04:s390x:
+
+parts:
+  charm:
+    plugin: charm
+    source: .
