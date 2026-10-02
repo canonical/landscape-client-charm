@@ -7,7 +7,6 @@ import base64
 import configparser
 import logging
 import os
-import re
 import socket
 import subprocess
 import sys
@@ -161,18 +160,14 @@ def get_additional_client_configuration(
     try:
         config.read_string(raw)
     except configparser.MissingSectionHeaderError as e:
-        raise ClientCharmError(
-            f"Malformed additional-client-configuration: {repr(raw)}"
-        ) from e
+        raise ClientCharmError(f"Malformed additional-client-configuration: {repr(raw)}") from e
 
     try:
         client_config = dict(config["client"])
         logger.debug(f"Parsed additional-client-configuration: {client_config}")
         return client_config
     except KeyError as e:
-        raise ClientCharmError(
-            f"Malformed additional-client-configuration: {repr(raw)}"
-        ) from e
+        raise ClientCharmError(f"Malformed additional-client-configuration: {repr(raw)}") from e
 
 
 def create_client_config(
@@ -203,7 +198,7 @@ def create_client_config(
         client_config["ssl_ca"] = parse_ssl_arg(ssl_key)
     elif ssl_key := client_config.get("ssl_public_key"):
         client_config["ssl_public_key"] = parse_ssl_arg(ssl_key)
-        logging.warning("`ssl_public_key` is deprecated; " "use `ssl_ca` instead.")
+        logging.warning("`ssl_public_key` is deprecated; use `ssl_ca` instead.")
     return client_config
 
 
@@ -216,9 +211,7 @@ class LandscapeClientCharm(CharmBase):
         super().__init__(*args)
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self.framework.observe(
-            self.on.container_relation_departed, self._on_relation_departed
-        )
+        self.framework.observe(self.on.container_relation_departed, self._on_relation_departed)
         self.framework.observe(self.on.upgrade_action, self._upgrade)
         self.framework.observe(self.on.register_action, self._register)
         self._stored.set_default(things=[])
@@ -239,13 +232,9 @@ class LandscapeClientCharm(CharmBase):
                 # if the charm has a proxy setting configured, override the
                 # juju_http(s)_proxy configuration from the model
                 if proxy_var.replace("_", "-") in self.config:
-                    add_apt_repository_env[proxy_var] = self.config[
-                        proxy_var.replace("_", "-")
-                    ]
+                    add_apt_repository_env[proxy_var] = self.config[proxy_var.replace("_", "-")]
                 elif juju_proxy_var in add_apt_repository_env:
-                    add_apt_repository_env[proxy_var] = add_apt_repository_env[
-                        juju_proxy_var
-                    ]
+                    add_apt_repository_env[proxy_var] = add_apt_repository_env[juju_proxy_var]
 
                 if proxy_var in add_apt_repository_env:
                     logger.info(
@@ -349,9 +338,7 @@ class LandscapeClientCharm(CharmBase):
 
     def _register(self, event):
         if isinstance(self.unit.status, MaintenanceStatus):
-            log_error(
-                "Please wait until charm is ready before registering.", event=event
-            )
+            log_error("Please wait until charm is ready before registering.", event=event)
             return
 
         try:

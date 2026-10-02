@@ -1,12 +1,12 @@
-name: Run tox
+name: Unit test charm
 
 on:
   pull_request:
   workflow_dispatch:
 
 jobs:
-  tox:
-    name: Run tox
+  unit-test:
+    name: Unit test
     if: "!github.event.pull_request.draft"
     runs-on: ${{ matrix.os }}
     strategy:
@@ -17,10 +17,8 @@ jobs:
           - ubuntu-24.04
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v4
-      - name: Install tox
-        run: python3 -m pip install tox
-      - name: Lint
-        run: tox run -e lint
-      - name: Unit test
-        run: tox run -e unit
+        uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Run unit tests
+        run: make test
