@@ -6,7 +6,7 @@ applications:
     options:
       computer-title: test-client-charm
       account-name: devel
-      ppa: ppa:landscape/self-hosted-beta
+      ppa: ppa:landscape/self-hosted-26.04
       url: https://landscape.canonical.com/message-system
       ping-url: https://landscape.canonical.com/ping
       registration-key:  # fill in as necessary
