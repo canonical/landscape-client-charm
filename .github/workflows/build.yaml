@@ -1,0 +1,12 @@
+name: Build charm
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build charm
+    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v49.0.1
+    with:
+      cache: false
