@@ -1,4 +1,4 @@
-PLATFORM ?= ubuntu@24.04:amd64
+PLATFORM ?= ubuntu@26.04:amd64
 
 .PHONY: test
 test:
