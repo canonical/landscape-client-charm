@@ -7,6 +7,9 @@ on:
 jobs:
   build:
     name: Build charm
+    permissions:
+      actions: read
+      contents: read
     uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v49.0.1
     with:
       cache: false
