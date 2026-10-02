@@ -19,5 +19,8 @@ tox run -e fmt
 Build charm:
 
 ```sh
-charmcraft pack
+make build
 ```
+
+Set `PLATFORM` to build for another declared Ubuntu platform, for example
+`PLATFORM=ubuntu@22.04:amd64 make build`.
