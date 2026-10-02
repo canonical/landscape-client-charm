@@ -1,8 +1,8 @@
 description: Landscape Client Test Bundle
 applications:
   landscape-client:
-    base: ubuntu@24.04
-    charm: ./landscape-client_ubuntu@24.04-amd64.charm
+    base: ubuntu@26.04
+    charm: ./landscape-client_ubuntu@26.04-amd64.charm
     options:
       computer-title: test-client-charm
       account-name: devel
@@ -11,7 +11,7 @@ applications:
       ping-url: https://landscape.canonical.com/ping
       registration-key:  # fill in as necessary
   ubuntu:
-    base: ubuntu@24.04
+    base: ubuntu@26.04
     charm: ch:ubuntu
     num_units: 1
 relations:

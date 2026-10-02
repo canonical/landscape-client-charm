@@ -23,5 +23,7 @@ Build charm:
 make build
 ```
 
+Ubuntu 26.04 builds require Charmcraft 4.1 or newer.
+
 Set `PLATFORM` to build for another declared Ubuntu platform, for example
-`PLATFORM=ubuntu@22.04:amd64 make build`.
+`PLATFORM=ubuntu@26.04:amd64 make build`.

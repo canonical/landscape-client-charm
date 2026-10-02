@@ -1,6 +1,6 @@
 # This file configures Charmcraft.
 # See https://juju.is/docs/sdk/charmcraft-config for guidance.
-# This configuration requires Charmcraft 4.
+# Ubuntu 26.04 builds require Charmcraft 4.1 or newer.
 
 type: charm
 platforms:
@@ -16,6 +16,10 @@ platforms:
   ubuntu@24.04:arm64:
   ubuntu@24.04:ppc64el:
   ubuntu@24.04:s390x:
+  ubuntu@26.04:amd64:
+  ubuntu@26.04:arm64:
+  ubuntu@26.04:ppc64el:
+  ubuntu@26.04:s390x:
 
 parts:
   # Charmcraft validates that this part exists before running the uv plugin.
