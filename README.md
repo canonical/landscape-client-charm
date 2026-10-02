@@ -7,13 +7,14 @@ Docs have moved to [Charmhub](https://charmhub.io/landscape-client).
 Lint and run tests:
 
 ```sh
-tox run
+make check
+make test
 ```
 
 Format code automatically:
 
 ```sh
-tox run -e fmt
+make lint
 ```
 
 Build charm:
