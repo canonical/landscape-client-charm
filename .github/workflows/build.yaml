@@ -10,6 +10,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v49.0.1
+    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@21552fc8b0c61cd6998e2985aa0fa77d78fdb3ec # v49.0.1
     with:
       cache: false
