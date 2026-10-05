@@ -7,17 +7,23 @@ Docs have moved to [Charmhub](https://charmhub.io/landscape-client).
 Lint and run tests:
 
 ```sh
-tox run
+make check
+make test
 ```
 
 Format code automatically:
 
 ```sh
-tox run -e fmt
+make lint
 ```
 
 Build charm:
 
 ```sh
-charmcraft pack
+make build
 ```
+
+Ubuntu 26.04 builds require Charmcraft 4.1 or newer.
+
+Set `PLATFORM` to build for another declared Ubuntu platform, for example
+`PLATFORM=ubuntu@24.04:amd64 make build`.
