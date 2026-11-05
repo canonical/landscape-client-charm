@@ -1,25 +1,37 @@
 # This file configures Charmcraft.
 # See https://juju.is/docs/sdk/charmcraft-config for guidance.
-# Note this config works only for charmcraft 2.x/stable
+# Ubuntu 26.04 builds require Charmcraft 4.1 or newer.
 
 type: charm
-bases:
-  - build-on:
-    - name: ubuntu
-      channel: "22.04"
-    run-on:
-    - name: "ubuntu"
-      channel: "24.04"
-      architectures: [amd64, arm64, ppc64el, s390x]
-    - name: "ubuntu"
-      channel: "22.04"
-      architectures: [amd64, arm64, ppc64el, s390x]
-    - name: "ubuntu"
-      channel: "23.10"
-      architectures: [amd64, arm64, ppc64el, s390x]
-    - name: "ubuntu"
-      channel: "23.04"
-      architectures: [amd64, arm64, ppc64el, s390x]
-    - name: "ubuntu"
-      channel: "20.04"
-      architectures: [amd64, arm64, ppc64el, s390x]
+platforms:
+  ubuntu@20.04:amd64:
+  ubuntu@20.04:arm64:
+  ubuntu@20.04:ppc64el:
+  ubuntu@20.04:s390x:
+  ubuntu@22.04:amd64:
+  ubuntu@22.04:arm64:
+  ubuntu@22.04:ppc64el:
+  ubuntu@22.04:s390x:
+  ubuntu@24.04:amd64:
+  ubuntu@24.04:arm64:
+  ubuntu@24.04:ppc64el:
+  ubuntu@24.04:s390x:
+  ubuntu@26.04:amd64:
+  ubuntu@26.04:arm64:
+  ubuntu@26.04:ppc64el:
+  ubuntu@26.04:s390x:
+
+parts:
+  # Charmcraft validates that this part exists before running the uv plugin.
+  uv-deps:
+    plugin: nil
+    build-packages:
+      - curl
+    override-build: |
+      curl -LsSf https://astral.sh/uv/0.10.8/install.sh | sh
+      ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv
+  charm:
+    plugin: uv
+    source: .
+    after:
+      - uv-deps

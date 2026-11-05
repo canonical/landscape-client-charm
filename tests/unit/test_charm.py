@@ -3,7 +3,6 @@
 # Learn more about testing at: https://juju.is/docs/sdk/testing
 import base64
 import os
-import tempfile
 import unittest
 from unittest import mock
 
@@ -15,10 +14,10 @@ import charm
 from charm import (
     CLIENT_CONFIG_CMD,
     ClientCharmError,
-    LandscapeClientCharm,
     create_client_config,
     get_additional_client_configuration,
     get_modified_env_vars,
+    LandscapeClientCharm,
 )
 
 
@@ -68,9 +67,7 @@ class TestCharm(unittest.TestCase):
         """Restart client if it's registered"""
         self.harness.begin()
         self.harness.update_config({})
-        self.process_mock.assert_called_once_with(
-            ["systemctl", "restart", "landscape-client"]
-        )
+        self.process_mock.assert_called_once_with(["systemctl", "restart", "landscape-client"])
 
     def test_ppa_added(self):
         self.harness.begin()
@@ -163,9 +160,7 @@ class TestCharm(unittest.TestCase):
         rel_id = self.harness.add_relation("container", "ubuntu")
         self.harness.add_relation_unit(rel_id, "ubuntu/0")
         self.harness.remove_relation_unit(rel_id, "ubuntu/0")
-        self.process_mock.assert_called_once_with(
-            [CLIENT_CONFIG_CMD, "--silent", "--disable"]
-        )
+        self.process_mock.assert_called_once_with([CLIENT_CONFIG_CMD, "--silent", "--disable"])
 
     def test_action_upgrade(self):
         self.harness.begin()
@@ -208,9 +203,7 @@ class TestCharm(unittest.TestCase):
         """
         Test that update config writes a new value and doesn't change previous ones
         """
-        self.open_mock.side_effect = mock.mock_open(
-            read_data="[client]\naccount_name = onward"
-        )
+        self.open_mock.side_effect = mock.mock_open(read_data="[client]\naccount_name = onward")
         self.harness.begin()
         self.harness.update_config({"ping-url": "url"})
         text = "".join([call.args[0] for call in self.open_mock().write.mock_calls])
@@ -274,7 +267,6 @@ class TestCharm(unittest.TestCase):
 
 
 class TestCreateClientConfig(unittest.TestCase):
-
     def test_additional_config_merged(self):
         """
         Non-conflicting additional configuration is merged.
@@ -313,7 +305,6 @@ class TestCreateClientConfig(unittest.TestCase):
 
 
 class TestGetAddtionalClientConfiguration(unittest.TestCase):
-
     def test_empty_additional_config(self):
         """
         An empty [client] section produces an empty dict
@@ -326,7 +317,9 @@ class TestGetAddtionalClientConfiguration(unittest.TestCase):
         Multiple key/values can be specified in additional-client-configuration
         """
         juju_config = {
-            "additional-client-configuration": "[client]\nsomevalue = somekey\nanother_value = another_key"
+            "additional-client-configuration": (
+                "[client]\nsomevalue = somekey\nanother_value = another_key"
+            )
         }
         expected = {"somevalue": "somekey", "another_value": "another_key"}
         self.assertEqual(expected, get_additional_client_configuration(juju_config))
@@ -359,8 +352,6 @@ class TestGetAddtionalClientConfiguration(unittest.TestCase):
 
         There is currently no schema validation for config.
         """
-        juju_config = {
-            "additional-client-configuration": "[client]\nsomevalue = somekey"
-        }
+        juju_config = {"additional-client-configuration": "[client]\nsomevalue = somekey"}
         expected = {"somevalue": "somekey"}
         self.assertEqual(expected, get_additional_client_configuration(juju_config))
