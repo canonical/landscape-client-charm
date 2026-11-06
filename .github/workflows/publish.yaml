@@ -11,6 +11,11 @@ on:
         default: latest/edge
         type: string
 
+# Serialize runs per destination channel so overlapping releases cannot interleave
+concurrency:
+  group: publish-${{ inputs.channel || 'latest/edge' }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build charm
