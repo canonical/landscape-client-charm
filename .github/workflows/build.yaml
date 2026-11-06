@@ -3,13 +3,57 @@ name: Build charm
 on:
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   build:
-    name: Build charm
+    name: Build ${{ matrix.base }}:${{ matrix.arch.name }}
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 120
     permissions:
-      actions: read
       contents: read
-    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@21552fc8b0c61cd6998e2985aa0fa77d78fdb3ec # v49.0.1
-    with:
-      cache: false
+    strategy:
+      fail-fast: false
+      matrix:
+        base:
+          - "20.04"
+          - "22.04"
+          - "24.04"
+          - "26.04"
+        arch:
+          - name: amd64
+            runner: self-hosted-linux-amd64-jammy-large
+          - name: arm64
+            runner: self-hosted-linux-arm64-jammy-large
+          - name: ppc64el
+            runner: self-hosted-linux-ppc64el-noble-edge
+          - name: s390x
+            runner: self-hosted-linux-s390x-noble-medium
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Set up LXD
+        uses: canonical/setup-lxd@54a5806e490d92e207b57183cf111ed54bbdeff4 # v0.1.2
+        with:
+          group: lxd
+      - name: Install charmcraft
+        run: |
+          sudo snap install charmcraft --classic
+          sudo adduser "$USER" lxd
+      - name: Pack charm
+        run: sg lxd -c 'charmcraft pack -v --platform "ubuntu@${BASE}:${ARCH}"'
+        env:
+          BASE: ${{ matrix.base }}
+          ARCH: ${{ matrix.arch.name }}
+      - name: Charmcraft logs
+        if: failure()
+        run: cat ~/.local/state/charmcraft/log/* || true
+      - name: Upload charm package
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: packed-charm-${{ matrix.base }}-${{ matrix.arch.name }}
+          path: "*.charm"
+          if-no-files-found: error
+          retention-days: 7
