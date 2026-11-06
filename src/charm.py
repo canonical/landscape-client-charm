@@ -12,7 +12,7 @@ import socket
 import subprocess
 import sys
 import traceback
-from typing import Any, Mapping
+from typing import Any, Dict, Mapping
 
 from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
@@ -145,7 +145,7 @@ def merge_client_config(conf_file: str, client_config: Mapping[str, Any]):
 
 def get_additional_client_configuration(
     juju_config: Mapping[str, Any],
-) -> dict[str, Any]:
+) -> Dict[str, Any]:
     """
     Parse the `additional-client-configuration` option from the Juju configuration
     and return key-value pairs.
