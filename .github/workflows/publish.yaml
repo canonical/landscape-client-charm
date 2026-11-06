@@ -1,0 +1,77 @@
+name: Publish charm
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Charmhub channel to release to
+        default: latest/edge
+        type: string
+
+# Serialize runs per destination channel so overlapping releases cannot interleave
+concurrency:
+  group: publish-${{ inputs.channel || 'latest/edge' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build charm
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.yaml
+
+  publish:
+    name: Publish ${{ matrix.base }}:${{ matrix.arch }}
+    needs: build
+    runs-on: ubuntu-latest
+    # Needed to create the git tag and GitHub release for each revision
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      # Sequential uploads avoid Charmhub API errors and give a stable revision order
+      max-parallel: 1
+      matrix:
+        base:
+          - "20.04"
+          - "22.04"
+          - "24.04"
+          - "26.04"
+        arch:
+          - amd64
+          - arm64
+          - ppc64el
+          - s390x
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Download charm package
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: packed-charm-${{ matrix.base }}-${{ matrix.arch }}
+          path: charm
+      - name: Find charm package
+        id: charm
+        run: |
+          shopt -s nullglob
+          charms=(charm/*.charm)
+          if [ "${#charms[@]}" -ne 1 ]; then
+            echo "Expected exactly one charm package, found ${#charms[@]}" >&2
+            exit 1
+          fi
+          echo "path=${charms[0]}" >> "$GITHUB_OUTPUT"
+      - name: Upload and release charm
+        uses: canonical/charming-actions/upload-charm@19db2e9c9da186f64b38b95d8e7e57229f3362da # 2.6.0
+        with:
+          credentials: ${{ secrets.CHARMHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          channel: ${{ inputs.channel || 'latest/edge' }}
+          built-charm-path: ${{ steps.charm.outputs.path }}
+          tag-prefix: ${{ matrix.base }}-${{ matrix.arch }}
+          upload-image: "false"
+          pull-image: "false"
