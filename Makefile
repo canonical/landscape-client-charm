@@ -1,4 +1,6 @@
 PLATFORM ?= ubuntu@26.04:amd64
+# Juju's LXD provider is not guaranteed to support the newest base, so test on 24.04
+INTEGRATION_PLATFORM ?= ubuntu@24.04:amd64
 
 .PHONY: test
 test:
@@ -6,7 +8,7 @@ test:
 
 .PHONY: integration-test
 integration-test:
-	uv run --group integration pytest -v --tb native tests/integration
+	LANDSCAPE_CLIENT_CHARM_INTEGRATION_PLATFORM=$(INTEGRATION_PLATFORM) uv run --group integration python tests/integration/deploy_check.py
 
 .PHONY: coverage
 coverage:
