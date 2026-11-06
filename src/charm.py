@@ -7,7 +7,6 @@ import base64
 import configparser
 import logging
 import os
-import re
 import socket
 import subprocess
 import sys
