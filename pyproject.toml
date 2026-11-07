@@ -15,8 +15,7 @@ dev = [
     "ruff",
 ]
 integration = [
-    "juju",
-    "pytest-operator",
+    "jubilant==1.6.2",
     "pyyaml",
 ]
 
