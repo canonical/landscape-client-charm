@@ -12,12 +12,14 @@ from ops.testing import Harness
 
 import charm
 from charm import (
+    CERT_FILE,
     CLIENT_CONFIG_CMD,
     ClientCharmError,
     create_client_config,
     get_additional_client_configuration,
     get_modified_env_vars,
     LandscapeClientCharm,
+    SSL_CA_CERT_FILE,
 )
 
 
@@ -148,7 +150,29 @@ class TestCharm(unittest.TestCase):
             self.harness.update_config({"ssl-public-key": data_b64})
 
         self.assertIn("ssl-public-key option is deprecated", logs.output[0])
+        self.assertIn("Use ssl-ca instead", logs.output[0])
         self.open_mock().write.assert_called_once_with(data)
+
+    @mock.patch("charm.merge_client_config")
+    def test_ssl_ca_and_ssl_public_key_use_separate_files(self, merge_client_config_mock):
+        self.harness.begin()
+
+        with self.assertLogs("charm", level="WARNING") as logs:
+            self.harness.update_config(
+                {
+                    "ssl-ca": "base64:" + base64.b64encode(b"new").decode(),
+                    "ssl-public-key": "base64:" + base64.b64encode(b"old").decode(),
+                }
+            )
+
+        self.assertEqual(len(logs.output), 1)
+        self.assertIn("The client uses ssl-ca and ignores ssl-public-key", logs.output[0])
+        client_config = merge_client_config_mock.call_args.args[1]
+        self.assertEqual(client_config["ssl_ca"], SSL_CA_CERT_FILE)
+        self.assertEqual(client_config["ssl_public_key"], CERT_FILE)
+        self.open_mock.assert_any_call(SSL_CA_CERT_FILE, "wb")
+        self.open_mock.assert_any_call(CERT_FILE, "wb")
+        self.open_mock().write.assert_has_calls([mock.call(b"new"), mock.call(b"old")])
 
     def test_ssl_cert_invalid_file(self):
         self.harness.begin()
@@ -336,6 +360,32 @@ class TestCreateClientConfig(unittest.TestCase):
                 self.assertEqual(len(logs.output), 1)
                 self.assertIn("ssl-public-key option is deprecated", logs.output[0])
                 self.assertEqual(client_config["ssl_public_key"], expected)
+
+    @mock.patch("charm.os.path.isfile", return_value=True)
+    def test_ssl_ca_without_ssl_public_key_does_not_warn(self, _isfile):
+        for juju_config in (
+            {"ssl-ca": "/direct.crt"},
+            {"additional-client-configuration": "[client]\nssl_ca = /additional.crt"},
+        ):
+            with self.subTest(juju_config=juju_config):
+                with mock.patch("charm.logger") as logger_mock:
+                    client_config = create_client_config(juju_config, "title")
+                logger_mock.warning.assert_not_called()
+                self.assertNotIn("ssl_public_key", client_config)
+
+    @mock.patch("charm.os.path.isfile", return_value=True)
+    def test_ssl_public_key_ignored_warning_with_additional_config(self, _isfile):
+        juju_config = {
+            "ssl-public-key": "/old.crt",
+            "additional-client-configuration": "[client]\nssl_ca = /new.crt",
+        }
+        with self.assertLogs("charm", level="WARNING") as logs:
+            client_config = create_client_config(juju_config, "title")
+
+        self.assertEqual(len(logs.output), 1)
+        self.assertIn("The client uses ssl-ca and ignores ssl-public-key", logs.output[0])
+        self.assertEqual(client_config["ssl_ca"], "/new.crt")
+        self.assertEqual(client_config["ssl_public_key"], "/old.crt")
 
     @mock.patch("charm.logger")
     def test_unset_ssl_public_key_does_not_warn(self, logger_mock):
