@@ -193,6 +193,10 @@ def create_client_config(
     }
 
     additional_configuration = get_additional_client_configuration(juju_config)
+    if juju_config.get("ssl-public-key") or additional_configuration.get("ssl_public_key"):
+        logger.warning(
+            "The ssl-public-key option is deprecated and will be removed in a future release."
+        )
     client_config.update(additional_configuration)
 
     client_config.setdefault("computer_title", default_computer_title)

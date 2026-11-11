@@ -42,6 +42,7 @@ options:
     default:
   ssl-public-key:
     description: |
+      DEPRECATED: This option will be removed in a future release.
       The CA certificate to verify the server certificate with. This can be
       a path to a file, or a base64 encoded entry of the certificate itself,
       prefixed with "base64:". This config is only used if the message server

@@ -144,8 +144,10 @@ class TestCharm(unittest.TestCase):
         data = b"hello"
 
         data_b64 = "base64:" + base64.b64encode(data).decode()
-        self.harness.update_config({"ssl-public-key": data_b64})
+        with self.assertLogs("charm", level="WARNING") as logs:
+            self.harness.update_config({"ssl-public-key": data_b64})
 
+        self.assertIn("ssl-public-key option is deprecated", logs.output[0])
         self.open_mock().write.assert_called_once_with(data)
 
     def test_ssl_cert_invalid_file(self):
@@ -302,6 +304,50 @@ class TestCreateClientConfig(unittest.TestCase):
             expected,
             create_client_config(juju_config, default_computer_title="computer_title"),
         )
+
+    @mock.patch("charm.os.path.isfile", return_value=True)
+    def test_deprecated_ssl_public_key_warns_with_additional_config(self, _isfile):
+        cases = (
+            (
+                {"additional-client-configuration": "[client]\nssl_public_key = /additional.crt"},
+                "/additional.crt",
+            ),
+            (
+                {
+                    "ssl-public-key": "/direct.crt",
+                    "additional-client-configuration": (
+                        "[client]\nssl_public_key = /additional.crt"
+                    ),
+                },
+                "/additional.crt",
+            ),
+            (
+                {
+                    "ssl-public-key": "/direct.crt",
+                    "additional-client-configuration": "[client]\nssl_public_key = ",
+                },
+                "",
+            ),
+        )
+        for juju_config, expected in cases:
+            with self.subTest(juju_config=juju_config):
+                with self.assertLogs("charm", level="WARNING") as logs:
+                    client_config = create_client_config(juju_config, "title")
+                self.assertEqual(len(logs.output), 1)
+                self.assertIn("ssl-public-key option is deprecated", logs.output[0])
+                self.assertEqual(client_config["ssl_public_key"], expected)
+
+    @mock.patch("charm.logger")
+    def test_unset_ssl_public_key_does_not_warn(self, logger_mock):
+        for juju_config in (
+            {},
+            {"ssl-public-key": None},
+            {"ssl-public-key": ""},
+            {"additional-client-configuration": "[client]\nssl_public_key = "},
+        ):
+            with self.subTest(juju_config=juju_config):
+                create_client_config(juju_config, "title")
+        logger_mock.warning.assert_not_called()
 
 
 class TestGetAddtionalClientConfiguration(unittest.TestCase):
