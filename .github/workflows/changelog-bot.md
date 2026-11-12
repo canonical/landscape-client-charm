@@ -19,10 +19,9 @@ permissions:
   contents: read
 
 # The default checkout is shallow (fetch-depth 1) with no tags, which makes the
-# agent see only the latest commit. Fetch full history and tags so it can diff
-# against the last release and read the commit log. The second checkout fetches
-# the shared documentation repository (all branches, so the bot can check out an
-# existing docs PR head) for the release-notes work.
+# agent see only the latest commit. Fetch full history so it can scan the
+# commit window and read the commit log. A second checkout fetches the
+# documentation repo (all branches) for the shared release-notes PR.
 checkout:
   - fetch-depth: 0
   - repository: canonical/landscape-documentation
@@ -43,8 +42,8 @@ tools:
   edit:
 
 # The agent never pushes directly; its file edits are turned into pull
-# requests. One token governs both PR handlers because they both touch the docs
-# repo; it must be a PAT with contents+pull-requests write on
+# requests. One token governs both PR handlers (required when two handlers
+# touch the same repo); it must be a PAT with contents+pull-requests write on
 # canonical/landscape-documentation.
 safe-outputs:
   github-token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -58,16 +57,28 @@ safe-outputs:
     allowed-repos: ["canonical/landscape-documentation"]
     preserve-branch-name: true
     recreate-ref: true
+    # The bot only ever edits CHANGELOG.md here or release-notes pages in the
+    # docs repo; the handler rejects any other path outright. (gh-aw
+    # allowed-files filters by path only, not diff hunk, so "insert one new
+    # dated section, never touch existing sections" stays prompt-enforced.)
+    allowed-files: ["CHANGELOG.md", "docs/reference/release-notes/*.md"]
   push-to-pull-request-branch:
     target: "*"
     target-repo: canonical/landscape-documentation
     required-labels: [changelog, automation]
+    # Docs PR updates may only touch release-notes pages (including index.md).
+    allowed-files: ["docs/reference/release-notes/*.md"]
     max: 1
 ---
 
 # Biweekly changelog update
 
 You maintain the changelog for the Landscape Client charm (the subordinate Juju charm that registers machines with Landscape). Your job is to draft a new dated changelog section summarizing recent user-facing changes and open a pull request with it.
+
+## Hard prohibitions
+
+- NEVER create, edit, or delete any file other than `CHANGELOG.md` in this repository. This is mechanically enforced by the pull-request handler: it rejects any patch touching another path.
+- NEVER edit or delete an existing `CHANGELOG.md` section or entry, even one with problems. Flag problems in the `Changelog entries to review` section instead.
 
 ## Biweekly gate
 
@@ -81,10 +92,9 @@ This run was triggered by the `${{ github.event_name }}` event. Use that value l
 ## Gather the commits
 
 1. The changelog lives at `CHANGELOG.md` in the repository root. It may not exist yet; this bot creates it on the first run.
-2. Determine the last release point. Every push to `main` is published to Charmhub and CI tags the commit once per platform as `<base>-<arch>-rev<N>` (e.g. `24.04-s390x-rev116`); older releases used legacy `rev<N>` tags. Per-platform revision numbers are not comparable with each other or with the legacy ones, and several tags may point at the same commit, so NEVER pick the last release by highest revision number. Instead anchor on the most recent COMMIT carrying any release tag: run `git log --no-merges --decorate=full --format='%H %D'` and take the first commit whose decorations include a tag matching `rev[0-9]+` or `*-rev[0-9]+`.
-3. If no such tag exists, fall back to the last commit that touched the changelog: `git log -1 --format=%H -- CHANGELOG.md`.
-4. If neither exists (first run), use the full history.
-5. Collect commit subjects since that point with `git log <last>..HEAD --no-merges --pretty=%s` (for a full-history first run, just `git log --no-merges --pretty=%s`).
+2. The scan window is time-based: list the commits from the last four weeks with `git log --since="4 weeks ago" --no-merges --pretty=%H%x09%s`. Do NOT anchor on release tags or on `CHANGELOG.md` commits: every push to `main` is published to Charmhub `latest/edge` and CI tags the commit once per platform as `<base>-<arch>-rev<N>` (older releases used legacy `rev<N>` tags), so the most recent tagged commit is almost always the tip of `main` and a tag anchor would leave an empty window. Four weeks against a biweekly schedule gives two weeks of overlap with the previous run, so omissions are still caught; the deduplication rules below prevent double-filing.
+3. Skip any commit whose subject has no trailing pull request reference ` (#1234)`. Such commits cannot carry the `(#<N>)` marker the deduplication relies on, so they can never be filed safely; if one looks user-facing, flag it in the review section below instead of adding a changelog entry for it.
+4. Deduplicate the rest by pull request number. For each commit, extract its PR number `<N>` from the trailing ` (#1234)` reference in the subject. Skip the commit if `CHANGELOG.md` exists and already contains the exact reference `(#<N>)` anywhere (match the full number — `(#123` must not match `(#1234)`). Every entry this bot writes ends with its ` (#1234)` reference, so an existing mention means a previous run already covered that PR.
 
 ## Select user-facing commits only
 
@@ -93,15 +103,17 @@ Include only commits that a Landscape administrator would notice. Commit subject
 - **Include**: `feat:`, `fix:`, `perf:`, and any breaking change (a `!` before the colon, e.g. `feat!:` / `fix!:`).
 - **Maybe Include**: `refactor: ` commits, only if they are user-facing.
 - **Exclude**: `chore:`, `ci:`, `test:`, `build:`, `docs:`, and `style:`, commits,
-  plus anything that only touches tooling, tests, or CI.
+  plus anything that only touches tooling, tests, or CI, and any dependency bumps.
 
-Add each selected commit's subject line, including its type prefix and any `(LP: #NNNN)` Launchpad references, but excluding any `(scope)` after the type prefix. Proofread and correct any obvious spelling or grammar errors. Remove Jira issue references such as `LNDENG-5678` wherever they occur in the subject, and strip any trailing GitHub pull request reference such as ` (#1234)`. Do **not** strip `(LP: #NNNN)` references. If there are no user-facing commits, stop and make no changes.
+Breaking changes are not always flagged in the subject. For every selected commit, also inspect the full commit message with `git show -s --format=%B <sha>` and look for `BREAKING CHANGE:` or `BREAKING-CHANGE:` footers. A commit carrying such a footer is a breaking change even when its subject has no `!` — classify it as breaking and note the breaking nature in the docs island bullet.
+
+Add each selected commit's subject line, including its type prefix and any `(LP: #NNNN)` Launchpad references, but excluding any `(scope)` after the type prefix. Proofread and correct any obvious spelling or grammar errors. Remove Jira issue references such as `LNDENG-5678` wherever they occur in the subject. Do **not** strip `(LP: #NNNN)` references, and do **not** strip the trailing ` (#1234)` pull request reference — it is the coverage marker later runs deduplicate against. If there are no user-facing commits in the window at all, stop and make no changes.
 
 ## Sort the commits
 
 Group the commits by their type. Adhere to the following order.
 
-- Breaking changes (!)
+- Breaking changes (a `!` in the subject or a `BREAKING CHANGE:`/`BREAKING-CHANGE:` footer)
 - `feat`
 - `fix`
 - `perf`
@@ -128,29 +140,41 @@ Insert a new dated section directly under that header, before any existing secti
 
 ### Features
 
-- <subject>
+- <subject> (#1234)
 ```
 
 - Use `date +%F` for the section date (e.g. `2026-11-10`).
 - Group entries under headings in this order: `### Breaking changes`, `### Features`, `### Fixes`, `### Performance`, `### Refactors`. Omit headings that have no entries.
-- Each entry is a bullet beginning with `- `.
+- Each entry is a bullet beginning with `- ` and ending with the ` (#1234)` pull request reference described above.
+
+## Review existing changelog entries
+
+If `CHANGELOG.md` exists, review the entries in its newest sections (those added within the window) and the commits in the window for mismatches. Do NOT edit or delete anything. List every finding under a `Changelog entries to review` heading in the pull request body, one bullet per entry or commit with the reason and evidence; if no pull request is opened, report them in your run summary instead. Flagged items are excluded from the docs release-notes island.
+
+- **User-facing commit with no pull request reference**: a commit skipped by the ` (#1234)` rule above that matches "Select user-facing commits". Propose the entry it would have gotten.
+- **Existing changelog entry with no user impact**: find the commit behind the entry's `(#<N>)` reference (`git log --no-merges --grep="(#<N>)" -1 --format=%H`) and check `git show --name-only --format= <commit>`. Flag it if every touched path is a test (`tests/`), CI/tooling (`.github/`, `Makefile`, lint or build configuration), or docs file.
+- **Fix for an unreleased regression**: for a selected `fix:` commit F, take the hunks F modified (`git show -U0 F`) and run `git blame --porcelain -L <start>,<end> F^ -- <file>` to find the commits that introduced those lines. If they all fall inside the window, the bug was never in a stable channel — do not add a changelog entry for it and flag the commit instead. A PR title or body that references another PR merged in the same window is supporting evidence. If blame results are mixed, still write the entry but flag it as "possible", not certain.
 
 ## Open the pull request
 
-Open a pull request with the change. Use a title like `changelog update for <date>` (the `build: ` prefix is added automatically) and a body that lists the included commits and notes that only user-facing changes were selected.
+Open a pull request with the change. Use a title like `changelog update for <date>` (the `build: ` prefix is added automatically) and a body that lists the included commits, notes that only user-facing changes were selected, and includes the `Changelog entries to review` heading when anything was flagged. If no new section was needed, do not open an empty pull request — report any flagged entries in your run summary instead.
 
 ## Docs release notes (shared PR)
 
 You also maintain one island of the user-facing release notes for the in-development Landscape release, drafted in ONE SHARED pull request against `canonical/landscape-documentation`. You own exactly one marked section (island) in that PR and NEVER open separate per-repo docs PRs beyond the shared one.
 
+The docs work happens in the separate `./landscape-documentation` checkout. The hard prohibitions above apply to this repository (landscape-client-charm) only; editing the release-notes page in the docs checkout is expected and allowed.
+
+Your island content derives from ALL user-facing commits selected in the window above — not only the ones that produced new changelog entries: a PR whose entry already existed still belongs in the release notes. Rewrite those selected commits into docs-appropriate bullets, excluding any entries flagged in `Changelog entries to review`.
+
 1. Determine the in-development Landscape release `YY.MM`: Landscape releases are `YY.04` and `YY.10`. From today's date, the in-development release is the next boundary strictly in the future (before April -> `YY.04`; before October -> `YY.10`; otherwise `(YY+1).04`). As of November 2026 this is **27.04** (betas are underway), so the target page is `docs/reference/release-notes/27.04-release-notes.md`.
 2. Find the shared docs PR: use the GitHub tools to list open PRs in `canonical/landscape-documentation` with labels `changelog` and `automation` (title starts with `build: `). If one exists, this is THE docs PR — use it regardless of which `YY.MM` page it targets.
 3. If a docs PR exists:
-   - In the `./landscape-documentation` checkout, check out that PR's head branch (PR refs were fetched via the wildcard fetch; e.g. `git checkout <branch>` after identifying it, or `git fetch origin pull/<N>/head:<branch>`).
+   - In the `./landscape-documentation` checkout, check out that PR's head branch (branches were fetched via the wildcard fetch at setup: `git checkout <branch>`). If the branch is not among the fetched refs, skip the docs work for this run — the agent has no credentials to fetch it.
+   - Other Landscape bots push to this same shared branch, so the checkout (fetched at setup time) may be stale and another bot may push while you work. The agent environment has NO git credentials — `git fetch` fails here, so NEVER attempt to fetch or rebase. Work from the PR branch ref as fetched at setup; keep every edit strictly inside your own island markers so it applies cleanly over the other bots' island updates. `push_to_pull_request_branch` applies your patch to the branch's live tip in a credentialed job; if a concurrent push made it conflict, the delivery fails safely — do not retry, the next run redoes the work. NEVER force-push over another bot's commits.
    - Update ONLY your own island (see below). If the release-notes page for the in-development version does not exist on that branch, create it from the template below and add it to the toctree in `docs/reference/release-notes/index.md` (newest non-LTS page goes directly under the LTS entries, matching existing ordering).
-   - Before committing, re-sync onto the branch's latest tip: `git fetch origin pull/<N>/head` (or `git fetch origin <branch>`), then rebase/reset your work onto the fetched tip so the push is a fast-forward. Several changelog bots update this same shared branch.
    - Commit in the docs checkout and deliver via `push_to_pull_request_branch` with `pull_request_number` set to the docs PR number.
-4. If no docs PR exists: skip the docs release-notes work for this run entirely. You NEVER create the shared docs PR — only landscape-server's changelog bot creates it, which avoids several bots racing to create the same PR. (Your in-repo changelog work above is unaffected.)
+4. If no docs PR exists, skip the docs work for this run entirely: make no changes in the `./landscape-documentation` checkout. NEVER create the shared docs PR yourself — only landscape-server's bot creates it; every other bot only ever updates an existing one. (Your in-repo changelog work above is unaffected.)
 5. If you have no user-facing changes this cycle, leave your island untouched; do not create or update the docs PR. (Your own-repo changelog PR logic is unaffected.)
 
 ### Your island
