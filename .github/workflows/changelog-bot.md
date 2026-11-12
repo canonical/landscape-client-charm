@@ -21,14 +21,14 @@ permissions:
 # The default checkout is shallow (fetch-depth 1) with no tags, which makes the
 # agent see only the latest commit. Fetch full history so it can scan the
 # commit window and read the commit log. A second checkout fetches the
-# documentation repo (all branches) for the shared release-notes PR; the docs
-# PAT is used only to fetch refs at setup, so contents-read is enough.
+# documentation repo (all branches) for the shared release-notes PR; that repo
+# is public, so the checkout needs no token (setting one here would also leak
+# it onto the primary-repo checkout in the safe-output jobs).
 checkout:
   - fetch-depth: 0
   - repository: canonical/landscape-documentation
     path: ./landscape-documentation
     fetch: ["*"]
-    github-token: ${{ secrets.LANDSCAPE_DOCS_TOKEN }}
 
 engine:
   id: copilot
