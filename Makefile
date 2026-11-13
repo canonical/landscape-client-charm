@@ -8,7 +8,7 @@ test:
 
 .PHONY: integration-test
 integration-test:
-	LANDSCAPE_CLIENT_CHARM_INTEGRATION_PLATFORM=$(INTEGRATION_PLATFORM) uv run --group integration python tests/integration/deploy_check.py
+	LANDSCAPE_CLIENT_CHARM_INTEGRATION_PLATFORM=$(INTEGRATION_PLATFORM) uv run --group integration python -m pytest -v --tb native tests/integration
 
 .PHONY: coverage
 coverage:
