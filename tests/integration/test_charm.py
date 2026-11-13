@@ -1,34 +1,30 @@
-#!/usr/bin/env python3
 # See LICENSE file for licensing details.
 
-import asyncio
-import logging
-from pathlib import Path
+"""Deploy the packed charm onto an ubuntu unit and check that the client installs.
 
-import pytest
-from pytest_operator.plugin import OpsTest
-import yaml
+The charm cannot register without a Landscape server, so this does not wait for
+active status. It checks that no unit is in error and that the client package was
+installed.
+"""
 
-logger = logging.getLogger(__name__)
+from conftest import APP_NAME
+import jubilant
 
-METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
-APP_NAME = METADATA["name"]
+WAIT_TIMEOUT_SECONDS = 60 * 20
 
 
-@pytest.mark.abort_on_fail
-async def test_build_and_deploy(ops_test: OpsTest):
-    """Build the charm-under-test and deploy it together with related charms.
+def subordinate_is_present(status: jubilant.Status) -> bool:
+    unit = status.apps["ubuntu"].units.get("ubuntu/0")
+    return bool(unit and unit.subordinates)
 
-    Assert on the unit status before any relations/configurations take place.
-    """
-    # Build and deploy charm from local source folder
-    charm = await ops_test.build_charm(".")
-    resources = {"httpbin-image": METADATA["resources"]["httpbin-image"]["upstream-source"]}
 
-    # Deploy the charm and wait for active/idle status
-    await asyncio.gather(
-        ops_test.model.deploy(await charm, resources=resources, application_name=APP_NAME),
-        ops_test.model.wait_for_idle(
-            apps=[APP_NAME], status="active", raise_on_blocked=True, timeout=1000
-        ),
+def test_deploy_and_install(deployed: jubilant.Juju):
+    # Blocked is expected without registration, so only errors fail the wait
+    deployed.wait(
+        lambda status: subordinate_is_present(status) and jubilant.all_agents_idle(status),
+        error=jubilant.any_error,
+        timeout=WAIT_TIMEOUT_SECONDS,
     )
+
+    # Raises TaskError if the package is not installed
+    deployed.exec("dpkg-query -W landscape-client", unit=f"{APP_NAME}/0")
