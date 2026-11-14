@@ -101,6 +101,25 @@ jobs:
         with:
           node-version: "24"
 
+# The self-hosted runner image lacks the Docker Compose plugin, so the AWF
+# sandbox's "docker compose up -d" fails with "unknown shorthand flag: 'd' in
+# -d" and the agent job exits 125. Install the plugin before the agent job's
+# setup scripts.
+steps:
+  - name: Install Docker Compose plugin
+    run: |
+      if docker compose version >/dev/null 2>&1; then
+        echo "Docker Compose plugin already present, skipping install."
+        docker compose version
+        exit 0
+      fi
+      COMPOSE_VERSION="v5.5.0"
+      mkdir -p ~/.docker/cli-plugins
+      curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+        -o ~/.docker/cli-plugins/docker-compose
+      chmod +x ~/.docker/cli-plugins/docker-compose
+      docker compose version
+
 # The runner image also ships a gh too old for "gh attestation verify",
 # which the agent job's AWF install requires. Install a checksum-verified
 # modern gh CLI before the agent job's setup scripts.
