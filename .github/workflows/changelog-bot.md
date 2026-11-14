@@ -50,10 +50,14 @@ tools:
   edit:
 
 # The agent never pushes directly; its file edits are turned into pull
-# requests. Own-repo PRs use the default GITHUB_TOKEN; only the handler that
-# pushes to the shared docs PR gets the docs PAT (contents+pull-requests write
-# on canonical/landscape-documentation).
+# requests. gh-aw binds the whole safe_outputs job to a single credential for
+# its git checkouts and pushes (github/gh-aw#77580). The default GITHUB_TOKEN
+# cannot write to canonical/landscape-documentation, so the whole job uses
+# LANDSCAPE_CHANGELOG_TOKEN, a fine-grained PAT with contents+pull-requests
+# read/write on both this repo and canonical/landscape-documentation; it backs
+# both the own-repo changelog PR and the release-notes push.
 safe-outputs:
+  github-token: ${{ secrets.LANDSCAPE_CHANGELOG_TOKEN }}
   create-pull-request:
     title-prefix: "build: "
     labels: [changelog, automation]
@@ -69,7 +73,7 @@ safe-outputs:
     # sections" stays prompt-enforced.)
     allowed-files: ["CHANGELOG.md"]
   push-to-pull-request-branch:
-    github-token: ${{ secrets.LANDSCAPE_DOCS_TOKEN }}
+    github-token: ${{ secrets.LANDSCAPE_CHANGELOG_TOKEN }}
     target: "*"
     target-repo: canonical/landscape-documentation
     required-labels: [changelog, automation]
