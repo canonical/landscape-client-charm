@@ -89,6 +89,35 @@ safe-outputs:
     # Docs PR updates may only touch release-notes pages (including index.md).
     allowed-files: ["docs/reference/release-notes/*.md"]
     max: 1
+
+# The self-hosted runner image ships a Node too old for gh-aw's runtime
+# scripts ("Cannot find module 'node:fs'" in the activation job). Install a
+# modern Node before activation runs.
+jobs:
+  activation:
+    pre-steps:
+      - name: Setup modern Node for gh-aw runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+# The runner image also ships a gh too old for "gh attestation verify",
+# which the agent job's AWF install requires. Install a checksum-verified
+# modern gh CLI before the agent job's setup scripts.
+pre-steps:
+  - name: Install modern gh CLI
+    run: |
+      GH_VERSION="2.83.1"
+      GH_SHA256="1c5252d4ce3db07b51c01ff0b909583da6364ff3fdc06d0c2e75e62dc0380a34"
+      tmp="$(mktemp -d)"
+      curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" -o "$tmp/gh.tgz"
+      echo "${GH_SHA256}  $tmp/gh.tgz" | sha256sum -c -
+      tar -xzf "$tmp/gh.tgz" -C "$tmp"
+      install -m 0755 "$tmp/gh_${GH_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
+      rm -rf "$tmp"
+      gh version
+    env:
+      GH_TOKEN: ${{ github.token }}
 ---
 
 # Weekly changelog update
