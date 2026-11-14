@@ -40,8 +40,20 @@ options:
       Normally http://fqdn/ping.
     type: string
     default:
+  ssl-ca:
+    description: |
+      The CA certificate to verify the server certificate with. This can be
+      a path to a file, or a base64 encoded entry of the certificate itself,
+      prefixed with "base64:". This config is only used if the message server
+      URL given above starts with https. Takes precedence over ssl-public-key.
+      Requires a landscape-client version that supports ssl_ca; use
+      ssl-public-key with older clients.
+    type: string
+    default:
   ssl-public-key:
     description: |
+      DEPRECATED: Use ssl-ca instead. This option will be removed in a future
+      release.
       The CA certificate to verify the server certificate with. This can be
       a path to a file, or a base64 encoded entry of the certificate itself,
       prefixed with "base64:". This config is only used if the message server

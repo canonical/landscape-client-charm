@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 APT_CONF_OVERRIDE = "/etc/apt/apt.conf.d/99landscapeoverride"
 CERT_FILE = "/etc/ssl/certs/landscape_server_ca.crt"
+SSL_CA_CERT_FILE = "/etc/ssl/certs/landscape_server_ssl_ca.crt"
 CLIENT_CONF_FILE = "/etc/landscape/client.conf"
 CLIENT_CONFIG_CMD = "/usr/bin/landscape-config"
 CLIENT_PACKAGE = "landscape-client"
@@ -68,17 +69,17 @@ def write_certificate(certificate, filename):
         file.write(base64.b64decode(certificate))
 
 
-def parse_ssl_arg(value):
+def parse_ssl_arg(value, cert_file=CERT_FILE):
     """
     If ssl config starts with 'base64' or is too long to be a file, decode
-    and write it to the default cert path, return the default path. Else
+    and write it to `cert_file`, return that path. Else
     make sure the file exists and return the original value
     """
     b64_prefix = "base64:"
     if value.startswith(b64_prefix) or len(value) > 4096:
         value = re.sub("^" + b64_prefix, "", value)
-        write_certificate(value, CERT_FILE)
-        value = CERT_FILE
+        write_certificate(value, cert_file)
+        value = cert_file
     else:
         if not os.path.isfile(value):
             log_error("Cert {} does not exist!".format(value))
@@ -193,9 +194,23 @@ def create_client_config(
     }
 
     additional_configuration = get_additional_client_configuration(juju_config)
+    if juju_config.get("ssl-public-key") or additional_configuration.get("ssl_public_key"):
+        if juju_config.get("ssl-ca") or additional_configuration.get("ssl_ca"):
+            logger.warning(
+                "Both ssl-ca and the deprecated ssl-public-key options are set. "
+                "The client uses ssl-ca and ignores ssl-public-key."
+            )
+        else:
+            logger.warning(
+                "The ssl-public-key option is deprecated and will be removed in a future "
+                "release. Use ssl-ca instead."
+            )
     client_config.update(additional_configuration)
 
     client_config.setdefault("computer_title", default_computer_title)
+
+    if ssl_ca := client_config.get("ssl_ca"):
+        client_config["ssl_ca"] = parse_ssl_arg(ssl_ca, SSL_CA_CERT_FILE)
 
     if ssl_key := client_config.get("ssl_public_key"):
         client_config["ssl_public_key"] = parse_ssl_arg(ssl_key)
